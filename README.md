@@ -107,7 +107,6 @@ publicar.bat            monta e publica no Firebase (Windows)
 ## 📄 Licença e créditos
 
 - Biblioteca de leitura de planilhas: [SheetJS Community Edition](https://github.com/SheetJS/sheetjs) (Apache-2.0).
--
 
 Feito por Mauricio Zarpelon — estudante de Análise e Desenvolvimento de Sistemas com experiência em logística.
 [LinkedIn] www.linkedin.com/in/mauricio-zarpelon-7669b22b8
