@@ -9,6 +9,8 @@ Painel web para **planejamento de carga e descarga de caminhões**, criado a par
 
 O painel lê a planilha, lê os **XML das NF-e e dos CT-e** e transforma tudo em indicadores, listas do dia e uma **Análise (BI)** de peso carregado por dia, empresa, motorista e produto.
 
+[C:\Users\mauri\AppData\Roaming\Claude\scratch-workspaces\54a90078-4963-42c7-8e8b-be6004f09fce\06c70c9a-a88a-4102-9287-d64b6773f31c\scratch-2026-09-20-771cf1\docs\index.html]
+
 > ⚠️ **Todos os dados e imagens deste repositório são fictícios** (empresas, motoristas, placas e pesos inventados). Nenhum dado da operação real está no código.
 
 ## 📸 Telas
