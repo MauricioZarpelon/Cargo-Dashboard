@@ -1,0 +1,11 @@
+{
+  "name": "painel-de-cargas",
+  "version": "1.0.0",
+  "description": "Painel de planejamento de cargas e BI de peso carregado (leitura de planilha Excel e XML de NF-e/CT-e).",
+  "private": true,
+  "scripts": {
+    "build": "node fonte/build.js dist/index.html",
+    "build:firebase": "node fonte/build.js public/index.html fonte/firebase-config.json",
+    "demo": "node fonte/build.js docs/index.html --demo"
+  }
+}

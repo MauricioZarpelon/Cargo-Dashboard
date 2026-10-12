@@ -1,0 +1,2295 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Painel de Cargas</title>
+<style>
+  :root {
+    --bg: #f4f5f7; --panel: #ffffff; --ink: #1c2330; --muted: #6a7385; --line: #e3e6ec;
+    --accent: #2456d6; --ok: #16803c; --ok-bg: #e4f5ea;
+    --warn: #a15c00; --warn-bg: #fff1d6;
+    --bad: #c62a2a; --bad-bg: #fde6e6;
+    --shadow: 0 1px 2px rgba(20,30,50,.06);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #12151b; --panel: #1b2029; --ink: #e8ebf1; --muted: #98a2b6; --line: #2a3140;
+      --accent: #6d94ff; --ok: #5ccf88; --ok-bg: #16301f;
+      --warn: #f0b458; --warn-bg: #33270f;
+      --bad: #ff7b7b; --bad-bg: #3a1a1a;
+      --shadow: none;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink);
+    font: 15px/1.45 system-ui, "Segoe UI", Roboto, sans-serif; }
+  header { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between;
+    padding: 16px 24px; background: var(--panel); border-bottom: 1px solid var(--line); }
+  h1 { font-size: 20px; margin: 0; }
+  .sub { color: var(--muted); font-size: 13px; }
+  .actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  button, select, input[type=search], input[type=text], input[type=number], textarea { font: inherit; color: var(--ink); background: var(--panel);
+    border: 1px solid var(--line); border-radius: 8px; padding: 7px 12px; }
+  button { cursor: pointer; }
+  button:hover { border-color: var(--accent); }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  main { max-width: 1280px; margin: 0 auto; padding: 20px 24px 48px; }
+  .banner { padding: 10px 14px; border-radius: 8px; margin-bottom: 12px; background: var(--warn-bg); color: var(--warn); font-size: 14px; }
+  .banner.err { background: var(--bad-bg); color: var(--bad); }
+  .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px; margin: 16px 0 20px; }
+  .kpi { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px;
+    box-shadow: var(--shadow); text-align: left; cursor: pointer; }
+  .kpi .label { color: var(--muted); font-size: 13px; }
+  .kpi .value { font-size: 36px; font-weight: 700; line-height: 1.15; font-variant-numeric: tabular-nums; }
+  .kpi .hint { color: var(--muted); font-size: 12px; }
+  .kpi.bad .value { color: var(--bad); }
+  .kpi.ok .value { color: var(--ok); }
+  .kpi.active { outline: 2px solid var(--accent); }
+  .filters { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin-bottom: 16px; }
+  .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; background: var(--panel); }
+  .seg button { border: 0; border-radius: 0; border-right: 1px solid var(--line); }
+  .seg button:last-child { border-right: 0; }
+  .seg button.on { background: var(--accent); color: #fff; }
+  .grid { display: grid; grid-template-columns: 2fr 1fr; gap: 16px; margin-bottom: 20px; }
+  @media (max-width: 900px) { .grid { grid-template-columns: 1fr; } }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 16px; box-shadow: var(--shadow); min-width: 0; }
+  .card h2 { font-size: 14px; margin: 0 0 12px; color: var(--muted); font-weight: 600; }
+  .days { display: flex; align-items: flex-end; gap: 6px; height: 170px; overflow-x: auto; overflow-y: hidden; scroll-behavior: smooth; padding-bottom: 4px; }
+  .day { flex: 0 0 34px; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 100%; cursor: pointer; border-radius: 6px; padding: 2px 0; }
+  .day:hover { background: color-mix(in srgb, var(--accent) 8%, transparent); }
+  .day .bar { width: 100%; max-width: 28px; display: flex; flex-direction: column-reverse; border-radius: 4px 4px 0 0; overflow: hidden; }
+  .day .seg-ok { background: var(--ok); } .day .seg-pend { background: var(--accent); } .day .seg-late { background: var(--bad); }
+  .day .n { font-size: 12px; font-variant-numeric: tabular-nums; margin-bottom: 2px; }
+  .day .d { font-size: 11px; color: var(--muted); margin-top: 4px; white-space: nowrap; }
+  .day.today .d { color: var(--ink); font-weight: 700; }
+  .day.selected { background: color-mix(in srgb, var(--accent) 14%, transparent); }
+  .day.selected .d { color: var(--accent); font-weight: 700; }
+  button.linklike { border: 0; background: none; color: var(--accent); font-size: 12px; font-weight: 600; padding: 0 0 0 8px; cursor: pointer; vertical-align: middle; }
+  .legend { display: flex; gap: 14px; font-size: 12px; color: var(--muted); margin-top: 10px; flex-wrap: wrap; }
+  .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 5px; }
+  .rank { display: grid; gap: 8px; }
+  .rank .row { display: grid; grid-template-columns: 1fr auto; gap: 4px 10px; font-size: 13px; }
+  .rank .track { grid-column: 1 / -1; height: 6px; background: var(--line); border-radius: 3px; overflow: hidden; }
+  .rank .fill { height: 100%; background: var(--bad); }
+  .empty { color: var(--muted); font-size: 13px; }
+  table { width: 100%; border-collapse: collapse; }
+  th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--line); }
+  th { font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); font-weight: 600; }
+  tbody tr:hover { background: color-mix(in srgb, var(--accent) 6%, transparent); }
+  tbody tr.row-ok { background: var(--ok-bg); }
+  tbody tr.row-late { background: var(--bad-bg); }
+  tbody tr.row-ok:hover { background: color-mix(in srgb, var(--ok-bg) 80%, var(--ok)); }
+  tbody tr.row-late:hover { background: color-mix(in srgb, var(--bad-bg) 80%, var(--bad)); }
+  tr.row-ok select.stbadge, tr.row-late select.stbadge { box-shadow: inset 0 0 0 1px currentColor; }
+  td.empcell { cursor: text; }
+  td.delcell { text-align: right; width: 1%; }
+  td.num { font-variant-numeric: tabular-nums; }
+  .badge { display: inline-block; padding: 2px 10px; border-radius: 999px; font-size: 12px; font-weight: 600; }
+  .badge.ok { background: var(--ok-bg); color: var(--ok); }
+  .badge.pend { background: var(--warn-bg); color: var(--warn); }
+  .badge.late { background: var(--bad-bg); color: var(--bad); }
+  select.stbadge { border: 0; border-radius: 999px; padding: 3px 10px; font-size: 12px; font-weight: 600; cursor: pointer; }
+  select.stbadge.ok { background: var(--ok-bg); color: var(--ok); }
+  select.stbadge.pend { background: var(--warn-bg); color: var(--warn); }
+  select.stbadge.late { background: var(--bad-bg); color: var(--bad); }
+  input.obs { width: 160px; padding: 4px 8px; font-size: 13px; }
+  .tag { font-size: 11px; color: var(--muted); border: 1px solid var(--line); border-radius: 4px; padding: 0 5px; margin-left: 6px; }
+  .tablewrap { overflow-x: auto; }
+  td.wa { white-space: nowrap; }
+  td.wa button { padding: 3px 10px; font-size: 13px; }
+  td.wa button.go { background: #1fa855; border-color: #1fa855; color: #fff; }
+  td.wa .done { color: var(--ok); font-size: 13px; }
+  td.wa button.again { border: 0; background: none; color: var(--muted); text-decoration: underline; padding: 0 4px; font-size: 12px; }
+  td.wa input.tel { width: 150px; padding: 3px 8px; font-size: 13px; }
+  label.chk { display: inline-flex; gap: 6px; align-items: center; font-size: 13px; color: var(--muted); }
+  dialog { border: 1px solid var(--line); border-radius: 12px; background: var(--panel); color: var(--ink); max-width: 460px; width: 92vw; }
+  dialog::backdrop { background: rgba(0,0,0,.4); }
+  dialog label { display: block; font-size: 13px; color: var(--muted); margin: 12px 0 4px; }
+  dialog select, dialog input[type=text], dialog input[type=number], dialog textarea { width: 100%; }
+  dialog .row { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
+  #dlgWa, #dlgList { max-width: 640px; }
+  #dlgWa textarea, #listText { line-height: 1.5; }
+  #dlgList label.check { display: flex; gap: 8px; align-items: center; margin: 0 0 10px; color: var(--ink); }
+  #listText { resize: vertical; }
+  #dlgBI { max-width: 960px; max-height: 88vh; overflow: auto; }
+  #dlgBI .birow { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 14px; }
+  #dlgBI .birow label { margin: 0; display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--muted); }
+  #dlgBI .birow select { width: auto; }
+  #dlgBI table { font-size: 13px; }
+  #dlgBI .kpi .value { font-size: 26px; }
+  .cloud.ok { color: var(--ok); }
+  .cloud.error, .cloud.offline { color: var(--bad); }
+  .cloud.signedout { color: var(--warn); cursor: pointer; text-decoration: underline; }
+  #dlgPass input[type=password] { width: 100%; font: inherit; color: var(--ink); background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 8px 12px; }
+  #dlgXml { max-width: 640px; max-height: 88vh; overflow: auto; }
+  .dropzone { border: 2px dashed var(--line); border-radius: 12px; padding: 30px 16px; text-align: center; font-size: 16px; cursor: pointer; color: var(--ink); }
+  .dropzone small { display: block; margin-top: 6px; color: var(--muted); font-size: 13px; }
+  .dropzone.sobre, .dropzone:hover, .dropzone:focus { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 8%, transparent); outline: none; }
+  #dlgXml table { font-size: 13px; margin-top: 8px; }
+  .rank.neutro .fill { background: var(--accent); }
+  .tiles { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 10px; }
+  .tile { min-width: 140px; padding: 10px 18px; border: 1px solid var(--line); border-radius: 10px; text-align: center; background: var(--bg); }
+  .tile .emp { font-size: 13px; font-weight: 700; letter-spacing: .03em; text-transform: uppercase; }
+  .tile .kg { font-size: 30px; font-weight: 700; line-height: 1.2; font-variant-numeric: tabular-nums; color: var(--accent); }
+  .tile .nf { font-size: 12px; color: var(--muted); }
+  .tile.total { border-color: var(--ink); }
+  .tile.total .kg { color: var(--ink); }
+  #biDiaCard h2 { font-size: 22px; font-weight: 800; }
+  #biDiaCard h2 input[type=date] { font: inherit; font-size: 13px; margin-left: 8px; padding: 3px 8px; }
+  .rank.neutro { max-height: 330px; overflow-y: auto; padding-right: 10px; align-content: start; }
+  .rank.neutro .row { min-width: 0; }
+  .rank .row b small { font-weight: 400; color: var(--muted); }
+  .days.estatico .day.dia-prod { flex: 0 0 auto; padding: 2px 4px; }
+  .dia-prod .pbars { display: flex; align-items: flex-end; gap: 3px; }
+  .dia-prod .pbar { display: flex; flex-direction: column; align-items: center; width: 34px; }
+  .dia-prod .pbar .bar { width: 100%; max-width: none; border-radius: 4px 4px 0 0; }
+  .dia-prod .pbar .n { font-size: 11px; }
+  .days.estatico .day { cursor: default; }
+  .days.estatico .day:hover { background: none; }
+  table.resumotab { width: 100%; border-collapse: collapse; font-size: 16px; }
+  table.resumotab th, table.resumotab td { border: 1px solid var(--ink); padding: 6px 12px; color: var(--ink); }
+  table.resumotab th { font-size: 16px; font-weight: 700; text-transform: none; letter-spacing: 0; }
+  #dlgResumo { max-width: 560px; }
+  #dlgResumo .row { flex-wrap: wrap; }
+  #dlgResumo input[type=date] { font: inherit; color: var(--ink); background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 7px 12px; }
+  #dlgAdd input[type=date], #dlgAdd input[type=text] { width: 100%; font: inherit; color: var(--ink); background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 7px 12px; }
+  .tag.manual { color: var(--accent); border-color: var(--accent); }
+  .tag.peso.vazio { border-style: dashed; min-width: 46px; display: inline-block; cursor: text; }
+  .tag.peso.man { border-style: double; }
+  .tag.peso { cursor: pointer; }
+  input.pesoedit { width: 80px; padding: 2px 6px; font-size: 12px; }
+  .tag.peso { color: var(--ink); border-color: var(--ink); font-weight: 600; font-variant-numeric: tabular-nums; }
+  button.rowdel { border: 0; background: none; color: var(--muted); padding: 0 4px; font-size: 13px; cursor: pointer; }
+  button.rowdel:hover { color: var(--bad); }
+  input.obs.saved { border-color: var(--ok); box-shadow: 0 0 0 2px var(--ok-bg); }
+  td.nomecell { cursor: text; }
+  input.nomeedit, input.empedit { width: 100%; min-width: 160px; font: inherit; color: var(--ink); background: var(--panel); border: 1px solid var(--accent); border-radius: 6px; padding: 3px 8px; }
+  .tag.edit { color: var(--warn); border-color: var(--warn); }
+  #aviso { position: fixed; inset: auto; left: 50%; bottom: 24px; transform: translateX(-50%); margin: 0; max-width: min(560px, 92vw);
+    background: var(--ink); color: var(--bg); border: 0; border-radius: 10px; padding: 12px 18px; font-size: 14px; line-height: 1.4; box-shadow: 0 6px 24px rgba(0,0,0,.28); }
+  #aviso:not(:popover-open), #aviso:empty { display: none; }
+  #printArea { display: none; }
+  @media print {
+    body > *:not(#printArea) { display: none !important; }
+    #printArea { display: block; color: #000; background: #fff; padding: 8px; }
+    #printArea h2 { margin: 0 0 12px; font-size: 18px; }
+    #printArea h3 { margin: 14px 0 4px; font-size: 14px; }
+    #printArea table { width: 100%; border-collapse: collapse; }
+    #printArea th, #printArea td { border: 1px solid #999; padding: 4px 8px; color: #000; font-size: 12px; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <div>
+    <h1>Painel de Cargas</h1>
+    <div class="sub" id="updated">carregando…</div>
+    <div class="sub cloud local" id="cloudStatus" title="Situação da conexão com a nuvem"></div>
+    <div class="sub">Para atualizar: no Excel Online abra a aba do mês, <b>Ctrl+A</b>, <b>Ctrl+C</b>; volte aqui e aperte <b>Ctrl+V</b>. Ou use “Abrir arquivo .xlsx”. Motorista em amarelo = CT-e feito.</div>
+  </div>
+  <div class="actions">
+    <button id="btnAdd" title="Escrever nomes de motoristas à mão, além de colar a planilha">Adicionar motorista</button>
+    <button id="btnList" class="primary" title="Monta a lista de caminhões de hoje para enviar ou imprimir">Lista do dia</button>
+    <button id="btnResumo" title="Mostra as cotas do dia por empresa e lote">Exibir resumo</button>
+    <button id="btnCopy" title="Copia a tabela de cotas do dia, com as linhas, para colar no WhatsApp, Teams ou Excel (Ctrl+V)">Copiar resumo</button>
+    <button id="btnUpload">Abrir arquivo .xlsx</button>
+    <button id="btnWa" title="Mensagem de aviso e telefones dos motoristas">WhatsApp</button>
+    <button id="btnXml" title="Arraste os XML das notas (NF-e) e dos CT-e para o painel ler o peso">Notas (XML)</button>
+    <button id="btnBI" title="Ranking, evolução por mês e relatório para exportar">Análise (BI)</button>
+    <button id="btnSettings" title="Ajustes">Ajustes</button>
+    <input type="file" id="file" accept=".xlsx,.xls" hidden>
+  </div>
+</header>
+
+<main>
+  <div id="banner"></div>
+  <section class="kpis" id="kpis"></section>
+
+  <section class="filters">
+    <div class="seg" id="view"></div>
+    <input type="date" id="fData" title="Ver um dia específico, inclusive antigos">
+    <select id="fEmpresa"></select>
+    <input type="search" id="fBusca" placeholder="Buscar motorista, empresa, data, lote…" title="Busca em motorista, empresa, lote, produto, data e observações">
+    <label class="chk"><input type="checkbox" id="fSoAvisar"> só quem ainda não foi avisado</label>
+    <span class="sub" id="count"></span>
+  </section>
+
+  <section class="grid">
+    <div class="card">
+      <h2>Caminhões por dia — clique numa barra para ver a lista <button id="btnHoje" class="linklike" title="Volta para hoje">◎ Hoje</button></h2>
+      <div class="days" id="days"></div>
+      <div class="legend">
+        <span><i style="background:var(--ok)"></i>CT-e feito</span>
+        <span><i style="background:var(--accent)"></i>Pendentes</span>
+        <span><i style="background:var(--bad)"></i>Atrasados</span>
+      </div>
+    </div>
+    <div class="card">
+      <h2>Atrasados por empresa</h2>
+      <div class="rank" id="rank"></div>
+    </div>
+  </section>
+
+  <section class="card tablewrap">
+    <table>
+      <thead><tr><th>Data</th><th>Empresa</th><th>Lote</th><th>Motorista</th><th>Observações</th><th>Situação</th><th>WhatsApp</th><th></th></tr></thead>
+      <tbody id="rows"></tbody>
+    </table>
+  </section>
+</main>
+
+<dialog id="dlgSettings">
+  <h3 style="margin-top:0">Ajustes</h3>
+  <p class="sub">Motorista pintado de <b>amarelo</b> na planilha = CT-e feito. Depois das 17h, quem ainda não está em amarelo (hoje ou em dias anteriores) fica com a <b>linha vermelha</b> de alerta, e a situação continua “Falta CT-e”. “Carregado sem CT-e” só aparece quando você escolhe na própria tabela.</p>
+  <label for="cfgLookback">Considerar atrasados dos últimos quantos dias?</label>
+  <input id="cfgLookback" type="number" min="1" max="365">
+  <p class="sub">Registros mais antigos sem amarelo ficam de fora, para não poluir a lista.</p>
+  <p class="sub" id="excluidasInfo"></p>
+  <button id="btnRestaurar" hidden>Restaurar linhas excluídas</button>
+  <p class="sub" id="cloudInfo"></p>
+  <button id="cloudSignOut" hidden>Sair da nuvem neste computador</button>
+  <div class="row"><button id="cfgCancel">Cancelar</button><button id="cfgSave" class="primary">Salvar</button></div>
+</dialog>
+
+<dialog id="dlgAdd">
+  <h3 style="margin-top:0">Adicionar motoristas</h3>
+  <p class="sub">Para quem não está na planilha (ou ainda não foi colado). Aparecem na lista como os outros, marcados com “manual”.</p>
+  <label for="addData">Data</label>
+  <input type="date" id="addData">
+  <label for="addEmpresa">Empresa</label>
+  <input type="text" id="addEmpresa" list="dlEmpresas" autocomplete="off" placeholder="Escolha ou escreva">
+  <datalist id="dlEmpresas"></datalist>
+  <label for="addLote">Lote (opcional)</label>
+  <input type="text" id="addLote" inputmode="numeric" autocomplete="off">
+  <label for="addProduto">Produto (opcional)</label>
+  <input type="text" id="addProduto" list="dlProdutos" autocomplete="off" placeholder="SOJA, FARELO…">
+  <datalist id="dlProdutos"><option value="SOJA"><option value="FARELO"></datalist>
+  <label for="addNomes">Motoristas (um nome por linha)</label>
+  <textarea id="addNomes" rows="6" placeholder="Carlos Silva&#10;João Pereira"></textarea>
+  <p class="sub" id="addErr" style="color:var(--bad)"></p>
+  <div class="row"><button id="addCancel">Cancelar</button><button id="addOk" class="primary">Adicionar</button></div>
+</dialog>
+
+<dialog id="dlgPass">
+  <h3 style="margin-top:0">Senha do painel</h3>
+  <p class="sub">Digite a senha compartilhada uma vez neste computador. Ela fica lembrada.</p>
+  <input type="password" id="passInput" autocomplete="current-password" placeholder="Senha">
+  <p class="sub" id="passErr" style="color:var(--bad)"></p>
+  <div class="row"><button id="passCancel">Agora não</button><button id="passOk" class="primary">Entrar</button></div>
+</dialog>
+
+<dialog id="dlgWa">
+  <h3 style="margin-top:0">Aviso por WhatsApp</h3>
+  <label for="waMsg">Mensagem (pode usar {primeiro_nome}, {nome}, {empresa}, {lote}, {produto}, {data})</label>
+  <textarea id="waMsg" rows="4"></textarea>
+  <p class="sub" id="waPreview"></p>
+  <label for="waMode">Abrir em</label>
+  <select id="waMode">
+    <option value="web">WhatsApp Web (web.whatsapp.com)</option>
+    <option value="app">Aplicativo do WhatsApp no computador</option>
+  </select>
+  <label for="waPhones">Adicionar telefones: um por linha, com nome e telefone (pode colar duas colunas do Excel)</label>
+  <textarea id="waPhones" rows="6" placeholder="Carlos Silva (11) 91234-5678"></textarea>
+  <p class="sub" id="waCount"></p>
+  <div class="row"><button id="waClose">Fechar</button><button id="waClear">Apagar telefones</button><button id="waExport" title="Copia todos os telefones guardados para colar em outro computador ou guardar como cópia">Copiar lista de telefones</button><button id="waSave" class="primary">Salvar</button></div>
+</dialog>
+
+<dialog id="dlgList">
+  <h3 style="margin-top:0">Lista de caminhões do dia</h3>
+  <label class="check"><input type="checkbox" id="listOnlyPend"> Só quem ainda falta o CT-e (sem amarelo)</label>
+  <textarea id="listText" rows="16"></textarea>
+  <p class="sub">Você pode editar o texto antes de copiar.</p>
+  <div class="row"><button id="listClose">Fechar</button><button id="listPrint">Imprimir / salvar PDF</button><button id="listCopy" class="primary">Copiar texto</button></div>
+</dialog>
+
+<dialog id="dlgResumo">
+  <h3 style="margin-top:0">Resumo do dia</h3>
+  <label for="resumoData">Dia</label>
+  <input type="date" id="resumoData">
+  <div id="resumoTabela" style="margin-top:14px"></div>
+  <p class="sub" id="resumoTotal"></p>
+  <p class="sub">“Copiar” leva a tabela com as linhas: no WhatsApp ela cola como tabela de texto (com as linhas desenhadas), e no Teams, Excel e Word cola como tabela com borda.</p>
+  <div class="row"><button id="resumoClose">Fechar</button><button id="resumoCopy" class="primary">Copiar</button></div>
+</dialog>
+
+<dialog id="dlgBI">
+  <h3 style="margin-top:0">Análise (BI)</h3>
+  <div class="birow">
+    <label>Período: <select id="biMes"></select></label>
+    <button id="biExport" title="Monta um relatório deste período para imprimir ou salvar em PDF">Exportar relatório</button>
+    <button id="biClose">Fechar</button>
+  </div>
+  <section class="card" id="biDiaCard" style="margin:0 0 14px" hidden>
+    <h2>Peso carregado no dia <input type="date" id="biDia" title="Trocar o dia"></h2>
+    <div class="sub" id="biDiaTitulo"></div>
+    <div class="tiles" id="biDiaTiles"></div>
+  </section>
+  <section class="card" style="margin:0 0 4px">
+    <h2>Peso das notas e dos CT-e (lidos dos XML)</h2>
+    <div class="kpis" id="biXmlKpis"></div>
+    <h4 style="margin:14px 0 6px">Peso carregado por dia</h4>
+    <div id="biPesoDia"></div>
+    <section class="grid" style="margin-top:14px">
+      <div>
+        <h4 style="margin:0 0 8px">Peso carregado por empresa</h4>
+        <div class="rank neutro" id="biPesoEmpresa"></div>
+        <h4 style="margin:16px 0 8px">Peso por mês de uma empresa</h4>
+        <select id="biEmpSel" style="width:100%;margin-bottom:8px"></select>
+        <div class="rank neutro" id="biEmpMeses" style="max-height:none"></div>
+      </div>
+      <div>
+        <h4 style="margin:0 0 8px">Peso carregado por motorista</h4>
+        <div class="rank neutro" id="biPesoMotorista"></div>
+      </div>
+    </section>
+    <div id="biXmlTab"></div>
+  </section>
+  <section class="kpis" id="biKpis"></section>
+  <section class="grid">
+    <div class="card">
+      <h2>Cargas por mês (clique numa barra para ver só aquele mês)</h2>
+      <div class="days" id="biMonths"></div>
+      <div class="legend">
+        <span><i style="background:var(--ok)"></i>CT-e feito</span>
+        <span><i style="background:var(--accent)"></i>Pendentes</span>
+        <span><i style="background:var(--bad)"></i>Atrasado (sem CT-e)</span>
+      </div>
+    </div>
+    <div class="card">
+      <h2>Por produto</h2>
+      <div id="biProduto"></div>
+    </div>
+  </section>
+  <section class="grid">
+    <div class="card">
+      <h2>Mais atrasos por empresa</h2>
+      <div class="rank" id="biEmpresa"></div>
+    </div>
+    <div class="card">
+      <h2>Mais atrasos por motorista</h2>
+      <div class="rank" id="biMotorista"></div>
+    </div>
+  </section>
+</dialog>
+
+<dialog id="dlgXml">
+  <h3 style="margin-top:0">Notas e CT-e (XML)</h3>
+  <p class="sub">Arraste aqui os arquivos XML das notas fiscais (NF-e) e dos CT-e: vários de uma vez, ou uma pasta inteira. O painel lê o peso e guarda para a Análise (BI). Soltar o mesmo arquivo de novo não duplica.</p>
+  <div id="xmlDrop" class="dropzone" tabindex="0">Solte os arquivos .xml aqui<small>ou clique para escolher no computador</small></div>
+  <input type="file" id="xmlFile" accept=".xml,text/xml,application/xml" multiple hidden>
+  <div id="xmlResultado" class="sub"></div>
+  <p class="sub" id="xmlResumo"></p>
+  <div id="xmlLigacao"></div>
+  <div id="xmlPendentes"></div>
+  <div class="row"><button id="xmlLimpar" hidden>Apagar todos os XML lidos</button><button id="xmlFechar" class="primary">Fechar</button></div>
+</dialog>
+<div id="aviso" popover="manual" role="status"></div>
+<div id="printArea"></div>
+
+<script>window.PAINEL_FIREBASE = /*FIREBASE_CONFIG*/null;</script>
+<script>/*XLSX_LIB*/</script>
+<script>
+// ---------- utilidades ----------
+const $ = (id) => document.getElementById(id);
+const norm = (s) => String(s ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
+const pad = (n) => String(n).padStart(2, '0');
+const isoOf = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+const todayIso = () => isoOf(new Date());
+const addDays = (iso, n) => { const [y, m, d] = iso.split('-').map(Number); return isoOf(new Date(y, m - 1, d + n)); };
+const diffDays = (a, b) => { const p = (s) => { const [y, m, d] = s.split('-').map(Number); return Date.UTC(y, m - 1, d); }; return Math.round((p(a) - p(b)) / 864e5); };
+const fmtDate = (iso) => iso.split('-').reverse().join('/');
+const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const store = {
+  get(k, d) { try { return localStorage.getItem(k) ?? d; } catch { return d; } },
+  set(k, v) { try { localStorage.setItem(k, v); } catch {} },
+};
+const jget = (k, d) => { try { return JSON.parse(store.get(k, '')) || d; } catch { return d; } };
+
+// ---------- estado ----------
+const state = {
+  items: [],          // um item por motorista escalado
+  cols: [],           // uma entrada por coluna (empresa/lote/dia) com a quantidade de cotas
+  demo: false,
+  view: 'hoje',       // hoje | atrasados | proximos | todos | data
+  dataFiltro: '',     // usado quando view === 'data'
+  biMes: '',          // mês escolhido na Análise (BI); '' = todos os meses carregados
+  biEmp: '',          // empresa escolhida em "Peso por mês de uma empresa"
+  biDia: '',         // dia mostrado no quadro "Peso carregado no dia" (vem do dia selecionado na tela principal)
+  empresa: '', busca: '', soAvisar: false,
+  error: '', savedAt: null, warn: '',
+  listView: [],
+};
+
+// ---------- leitura da planilha ----------
+// Cada dia é um bloco: linha de cabeçalho "Empresa- 85128", linha da data "SOJA- 21/09-- 16" (16 = cotas)
+// e os motoristas embaixo, na mesma coluna. Amarelo = CT-e feito.
+const DATE_RE = /(\d{1,2})\s*\/\s*(\d{1,2})\s*-+\s*(\d+)/;
+const MONTHS = ['janeiro', 'fevereiro', 'marco', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
+
+function isYellow(css) {
+  const m = String(css || '').match(/rgba?\(\s*(\d+)[,\s]+(\d+)[,\s]+(\d+)(?:[,\s/]+([\d.]+))?/);
+  if (!m) return false;
+  if (m[4] !== undefined && Number(m[4]) === 0) return false;           // transparente
+  const r = +m[1] / 255, g = +m[2] / 255, b = +m[3] / 255;
+  const max = Math.max(r, g, b), min = Math.min(r, g, b), l = (max + min) / 2, d = max - min;
+  if (d < 0.1) return false;                                            // branco, cinza, preto
+  const s = d / (1 - Math.abs(2 * l - 1));
+  let h;
+  if (max === r) h = ((g - b) / d) % 6; else if (max === g) h = (b - r) / d + 2; else h = (r - g) / d + 4;
+  h = (h * 60 + 360) % 360;
+  return h >= 42 && h <= 68 && s >= 0.5 && l >= 0.45;                   // do amarelo claro ao amarelo forte
+}
+const isYellowHex = (hex) => { const h = String(hex).slice(-6); return /^[0-9a-f]{6}$/i.test(h) && isYellow(`rgb(${parseInt(h.slice(0, 2), 16)},${parseInt(h.slice(2, 4), 16)},${parseInt(h.slice(4, 6), 16)})`); };
+
+// Dia e mês vêm sem ano ("21/09"): escolhe o ano que deixa a data mais perto da data de referência.
+function resolveDate(day, mon, ref) {
+  if (mon < 1 || mon > 12 || day < 1 || day > 31) return null;
+  let best = null, bestDiff = Infinity;
+  for (const y of [ref.getFullYear() - 1, ref.getFullYear(), ref.getFullYear() + 1]) {
+    const d = new Date(y, mon - 1, day);
+    if (d.getMonth() !== mon - 1) continue;
+    const diff = Math.abs(d - ref);
+    if (diff < bestDiff) { bestDiff = diff; best = d; }
+  }
+  return best ? isoOf(best) : null;
+}
+
+function parseGrid(grid, yellow, ref) {
+  const rows = grid.length;
+  const cell = (r, c) => String((grid[r] && grid[r][c]) ?? '').replace(/\s+/g, ' ').trim();
+  const isBoundary = (r) => (grid[r] || []).some((v) => /^data\s*\/\s*cotas$/i.test(String(v ?? '').trim()));
+  const items = [], cols = [];
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < grid[r].length; c++) {
+      const m = cell(r, c).match(DATE_RE);
+      if (!m) continue;
+      const date = resolveDate(+m[1], +m[2], ref);
+      if (!date) continue;
+      const produto = cell(r, c).slice(0, m.index).replace(/[-\s]+$/, '').trim();
+      const header = r > 0 ? cell(r - 1, c) : '';
+      const hm = header.match(/^(.*?)[\s-]*(\d{4,})\s*$/);
+      const empresa = (hm ? hm[1] : header).replace(/[-\s]+$/, '').trim();
+      const lote = hm ? hm[2] : '';
+      let blanks = 0, n = 0;
+      for (let k = r + 1; k < rows; k++) {
+        if (isBoundary(k)) break;
+        const v = cell(k, c);
+        if (v === '') { if (++blanks >= 2) break; continue; }
+        if (DATE_RE.test(v) || /\d{4,}\s*$/.test(v)) break;             // começou outro bloco
+        blanks = 0;
+        items.push({ d: date, e: empresa, l: lote, p: produto, m: titleName(v), y: yellow && yellow[k] && yellow[k][c] ? 1 : 0 });
+        n++;
+      }
+      cols.push({ d: date, e: empresa, l: lote, p: produto, c: +m[3], n });
+    }
+  }
+  return { items: dedupeRaw(items), cols };
+}
+
+// Primeira letra de cada nome em maiúscula ("CARLOS SILVA" -> "Carlos Silva"); "de/da/do/das/dos/e" ficam minúsculos no meio do nome.
+function titleName(s) {
+  const part = new Set(['de', 'da', 'do', 'das', 'dos', 'e', 'as', 'às']);
+  return String(s ?? '').replace(/\s+/g, ' ').trim().toLowerCase().split(' ')
+    .map((w, i) => (i > 0 && part.has(w) ? w : w.replace(/(^|[-'’])(\p{L})/gu, (_, p, c) => p + c.toUpperCase())))
+    .join(' ');
+}
+
+// Tira linhas repetidas: mesmo dia, mesma empresa e mesmo nome (lote e produto não contam).
+// O mesmo motorista pode aparecer no mesmo dia em empresas diferentes. Se alguma das repetidas está em amarelo, a que sobra fica em amarelo.
+function dedupeRaw(items) {
+  const vistos = new Map(), out = [];
+  for (const x of items) {
+    const k = `${x.d}|${norm(x.e)}|${nameKey(x.m)}`;
+    const prev = vistos.get(k);
+    if (prev) { if (x.y) prev.y = 1; continue; }
+    const c = { ...x };
+    vistos.set(k, c); out.push(c);
+  }
+  return out;
+}
+
+// mês ao qual a aba pertence = o mês mais frequente entre as datas
+function monthKeyOf(parsed) {
+  const count = {};
+  parsed.cols.forEach((c) => { const k = c.d.slice(0, 7); count[k] = (count[k] || 0) + 1; });
+  const best = Object.entries(count).sort((a, b) => b[1] - a[1])[0];
+  return best ? best[0] : null;
+}
+
+function sheetRef(name) {
+  const n = norm(name);
+  const mi = MONTHS.findIndex((m) => n.includes(m));
+  const y = n.match(/\b(20\d\d)\b/);
+  return mi >= 0 && y ? new Date(+y[1], mi, 15) : null;
+}
+
+function gridFromSheet(ws) {
+  const range = XLSX.utils.decode_range(ws['!ref'] || 'A1');
+  const grid = [], yellow = [];
+  for (let R = range.s.r; R <= range.e.r; R++) {
+    const row = [], yr = [];
+    for (let C = range.s.c; C <= range.e.c; C++) {
+      const cell = ws[XLSX.utils.encode_cell({ r: R, c: C })];
+      row.push(cell && cell.v !== undefined && !(cell.v instanceof Date) ? String(cell.v) : '');
+      const f = cell && cell.s && cell.s.patternType === 'solid' ? cell.s.fgColor : null;
+      yr.push(f && f.rgb && isYellowHex(f.rgb) ? 1 : 0);
+    }
+    grid.push(row); yellow.push(yr);
+  }
+  return { grid, yellow };
+}
+
+// Arquivo .xlsx: lê todas as abas de mês que tenham ano no nome (ex.: "Setembro 2026").
+function monthsFromWorkbook(buf) {
+  const wb = XLSX.read(buf, { type: 'array', cellStyles: true });
+  const months = {};
+  for (const name of wb.SheetNames) {
+    const ref = sheetRef(name);
+    if (!ref) continue;
+    const { grid, yellow } = gridFromSheet(wb.Sheets[name]);
+    const parsed = parseGrid(grid, yellow, ref);
+    const key = monthKeyOf(parsed);
+    if (key) months[key] = { ...parsed, savedAt: new Date().toISOString(), origin: 'arquivo' };
+  }
+  if (!Object.keys(months).length) throw new Error('Não encontrei abas de mês com cotas no arquivo (o nome da aba precisa ter mês e ano, como “Setembro 2026”).');
+  return months;
+}
+
+// Colagem do Excel Online: tabela HTML com a cor de cada célula.
+function gridFromHtml(html) {
+  const f = document.createElement('iframe');
+  f.setAttribute('sandbox', 'allow-same-origin');                       // sem scripts
+  f.style.cssText = 'position:fixed;left:-9999px;top:0;width:1000px;height:800px;visibility:hidden';
+  document.body.appendChild(f);
+  try {
+    const doc = f.contentDocument;
+    doc.open(); doc.write(html.replace(/<script[\s\S]*?<\/script>/gi, '')); doc.close();
+    const table = doc.querySelector('table');
+    if (!table) return null;
+    const win = doc.defaultView;
+    const grid = [], yellow = [];
+    table.querySelectorAll('tr').forEach((tr) => {
+      const row = [], yr = [];
+      tr.querySelectorAll('td,th').forEach((td) => {
+        const text = td.textContent.replace(/\s+/g, ' ').trim();
+        const y = isYellow(win.getComputedStyle(td).backgroundColor) ? 1 : 0;
+        const span = Math.max(1, parseInt(td.getAttribute('colspan') || '1', 10) || 1);
+        for (let i = 0; i < span; i++) { row.push(i === 0 ? text : ''); yr.push(y); }
+      });
+      grid.push(row); yellow.push(yr);
+    });
+    return { grid, yellow };
+  } finally { f.remove(); }
+}
+const gridFromText = (text) => ({ grid: text.replace(/\r/g, '').split('\n').map((l) => l.split('\t')), yellow: null });
+
+// ---------- dados: neste computador e, se configurado, na nuvem (Firebase) ----------
+// Tudo vive em "documentos" (kv): phones, config, month-AAAA-MM, situacao-AAAA-MM, obs-AAAA-MM, peso-AAAA-MM (peso digitado à mão, em kg), notified-AAAA-MM.
+// Sem Firebase, o kv é gravado só no navegador. Com Firebase, a nuvem manda e o navegador guarda uma cópia.
+let kv = {};
+let cloud = null;             // adaptador da nuvem, quando conectado
+let cloudSynced = false;
+const flat = { phones: {}, notified: {}, situacao: {}, obs: {}, peso: {}, nome: {}, empresa: {}, excluido: {}, xml: {} };
+const monthCache = {};
+let rebuildCount = 0, buildCount = 0;       // contadores que dizem quando refazer a ligação entre notas (XML) e linhas da tabela
+const encKey = (k) => String(k).replace(/\./g, '·');     // ponto não serve em nome de campo do Firestore
+const decKey = (k) => String(k).replace(/·/g, '.');
+
+function rebuildFlat() {
+  rebuildCount++;
+  flat.phones = {}; flat.notified = {}; flat.situacao = {}; flat.obs = {}; flat.peso = {}; flat.nome = {}; flat.empresa = {}; flat.excluido = {}; flat.xml = {};
+  for (const [id, d] of Object.entries(kv)) {
+    if (!d) continue;
+    if (id === 'phones') { for (const [k, v] of Object.entries(d)) flat.phones[decKey(k)] = v; continue; }
+    const m = id.match(/^(notified|situacao|obs|peso|nome|empresa|excluido|xml)-/);
+    if (m) for (const [k, v] of Object.entries(d)) flat[m[1]][decKey(k)] = v;
+  }
+}
+function persistKv() {
+  if (window.PAINEL_DEMO) return;                 // versão de demonstração: nada é gravado
+  // As notas lidas dos XML (documentos xml-AAAA-MM-DD) ficam numa chave separada do navegador, SEMPRE (mesmo com a nuvem):
+  // é a cópia de segurança que garante os pesos depois de atualizar a página, mesmo se a nuvem estiver lenta, bloqueada ou recusar gravar.
+  const base = {}, xml = {};
+  for (const [id, d] of Object.entries(kv)) (id.startsWith('xml-') ? xml : base)[id] = d;
+  try { localStorage.setItem('kv', JSON.stringify(base)); }
+  catch { state.error = 'Não consegui guardar os dados neste navegador. Eles valem só até fechar a página.'; }
+  // (a gravação das notas é feita à parte, no IndexedDB — veja gravarXmlAgora)
+  if (_xmlCarregado) { clearTimeout(_xmlTimer); _xmlTimer = setTimeout(gravarXmlAgora, 200); }
+}
+
+// ---- notas (XML) no IndexedDB: cabe muito mais que o localStorage e continua lá depois de atualizar ou fechar a página ----
+let _xmlCarregado = false, _xmlTimer = null;     // só grava depois de ler o que já estava guardado (senão apagaria sem querer)
+const xmlDb = {
+  _h: null, _p: null,
+  abrir() {
+    return this._p || (this._p = new Promise((ok, erro) => {
+      const r = indexedDB.open('painel-cargas', 1);
+      r.onupgradeneeded = () => r.result.createObjectStore('xml');
+      r.onsuccess = () => { this._h = r.result; ok(r.result); };
+      r.onerror = () => erro(r.error);
+      r.onblocked = () => erro(new Error('bloqueado'));
+    }));
+  },
+  async todos() {
+    const db = await this.abrir();
+    return new Promise((ok, erro) => {
+      const out = {}, req = db.transaction('xml').objectStore('xml').openCursor();
+      req.onsuccess = () => { const c = req.result; if (c) { out[c.key] = c.value; c.continue(); } else ok(out); };
+      req.onerror = () => erro(req.error);
+    });
+  },
+  async gravar(docs) {                            // troca o conteúdo pelo estado atual
+    const db = this._h || await this.abrir();     // com a base já aberta, a gravação começa na hora (vale também ao fechar a página)
+    return new Promise((ok, erro) => {
+      const tx = db.transaction('xml', 'readwrite'), st = tx.objectStore('xml');
+      st.clear();
+      for (const [id, d] of Object.entries(docs)) st.put(d, id);
+      tx.oncomplete = () => ok(); tx.onerror = tx.onabort = () => erro(tx.error);
+    });
+  },
+};
+async function gravarXmlAgora() {
+  if (!_xmlCarregado || window.PAINEL_DEMO) return;
+  clearTimeout(_xmlTimer); _xmlTimer = null;
+  const xml = {};
+  for (const [id, d] of Object.entries(kv)) if (id.startsWith('xml-')) xml[id] = d;
+  try { await xmlDb.gravar(xml); state.warnXml = false; try { localStorage.removeItem('xmlkv'); } catch {} }
+  catch {                                          // sem IndexedDB neste navegador: tenta o localStorage
+    try { localStorage.setItem('xmlkv', JSON.stringify(xml)); state.warnXml = false; } catch { state.warnXml = true; }
+  }
+}
+window.addEventListener('pagehide', () => { if (_xmlTimer) gravarXmlAgora(); });
+
+// Junta notas guardadas (IndexedDB / outro lugar) com o que já está na memória. Quem foi apagado depois (xmlApagadoEm) não volta.
+function uneXml(origem, empurrar) {
+  const apagado = Number(kv.config && kv.config.xmlApagadoEm) || 0;
+  let mudou = false;
+  for (const [id, d] of Object.entries(origem)) {
+    if (!id.startsWith('xml-') || !d) continue;
+    const faltam = {};
+    for (const [campo, rec] of Object.entries(d)) {
+      if (kv[id] && campo in kv[id]) continue;
+      if (apagado && !((rec && rec.i) > apagado)) continue;
+      faltam[campo] = rec;
+    }
+    if (!Object.keys(faltam).length) continue;
+    kv[id] = { ...(kv[id] || {}), ...faltam }; mudou = true;
+    if (empurrar && cloud) cloud.merge(id, faltam);
+  }
+  return mudou;
+}
+function afterKvChange() { persistKv(); rebuildFlat(); }
+function kvSetMany(docId, obj) {
+  kv[docId] = { ...(kv[docId] || {}), ...obj };
+  afterKvChange();
+  if (cloud) cloud.merge(docId, obj);
+}
+const kvSet = (docId, field, value) => kvSetMany(docId, { [field]: value });
+function kvDelete(docId, field) {
+  if (kv[docId]) delete kv[docId][field];
+  afterKvChange();
+  if (cloud) cloud.merge(docId, { [field]: cloud.DEL });
+}
+function kvReplace(docId, obj) {
+  kv[docId] = obj;
+  afterKvChange();
+  if (cloud) cloud.replace(docId, obj);
+}
+const monthOf = (key) => String(key).slice(0, 7);          // chaves começam com AAAA-MM-DD
+
+// Versões anteriores do painel guardavam cada coisa numa chave própria do navegador; converte uma vez.
+function migrateLegacy() {
+  const out = {};
+  const L = (k) => { try { return JSON.parse(localStorage.getItem(k)); } catch { return null; } };
+  const phonesOld = L('phones');
+  if (phonesOld) { out.phones = {}; for (const [k, v] of Object.entries(phonesOld)) out.phones[encKey(k)] = v; }
+  for (const kind of ['notified', 'situacao', 'obs']) {
+    const m = L(kind);
+    if (m) for (const [k, v] of Object.entries(m)) { const id = kind + '-' + monthOf(k); (out[id] = out[id] || {})[encKey(k)] = v; }
+  }
+  try { const wm = localStorage.getItem('waMsg'); if (wm) out.config = { waMsg: wm }; } catch {}
+  const months = L('months');
+  if (months) for (const [key, mo] of Object.entries(months)) out['month-' + key] = { json: JSON.stringify({ items: mo.items, cols: mo.cols }), savedAt: mo.savedAt, origin: mo.origin };
+  return out;
+}
+function loadKv() {
+  if (window.PAINEL_DEMO) { kv = {}; rebuildFlat(); return; }
+  let saved = null;
+  try { saved = JSON.parse(localStorage.getItem('kv')); } catch {}
+  if (saved) kv = saved; else { kv = migrateLegacy(); persistKv(); }
+  try { const x = JSON.parse(localStorage.getItem('xmlkv')); if (x) Object.assign(kv, x); } catch {}
+  rebuildFlat();
+}
+loadKv();
+// Lê as notas guardadas no IndexedDB (a leitura é assíncrona: os pesos aparecem logo depois de abrir) e só então libera a gravação.
+(async () => {
+  if (window.PAINEL_DEMO) { _xmlCarregado = true; return; }
+  try {
+    const docs = await xmlDb.todos();
+    if (uneXml(docs, true)) { rebuildFlat(); scheduleRefresh(); }
+  } catch { /* sem IndexedDB: segue só com o localStorage */ }
+  _xmlCarregado = true;
+  gravarXmlAgora();                                // guarda o que já estava no localStorage (versões anteriores) no IndexedDB
+})();
+
+function loadMonths() {
+  const out = {};
+  for (const [id, d] of Object.entries(kv)) {
+    if (!id.startsWith('month-') || !d || !d.json) continue;
+    let c = monthCache[id];
+    if (!c || c.json !== d.json) {
+      let parsed; try { parsed = JSON.parse(d.json); } catch { continue; }
+      c = monthCache[id] = { json: d.json, parsed };
+    }
+    out[id.slice(6)] = { items: c.parsed.items || [], cols: c.parsed.cols || [], savedAt: d.savedAt, origin: d.origin };
+  }
+  return Object.keys(out).length ? out : null;
+}
+const cfgGet = (field, def) => (kv.config && kv.config[field]) || def;
+const lookbackDays = () => Math.max(1, Number(store.get('lookback', '30')) || 30);
+
+// --- nuvem ---
+const CLOUD_TEXT = {
+  local: 'Dados só neste computador', connecting: 'Conectando à nuvem…', ok: '☁ Sincronizado',
+  offline: 'Sem internet: as edições serão enviadas quando voltar', signedout: 'Sem login na nuvem — clique aqui para entrar', error: 'Erro na nuvem',
+};
+let cloudKind = 'local';
+function setCloudStatus(kind, detail) {
+  cloudKind = kind;
+  const el = $('cloudStatus');
+  el.textContent = CLOUD_TEXT[kind] + (detail ? ' (' + detail + ')' : '');
+  el.className = 'sub cloud ' + kind;
+  $('cloudInfo').textContent = kind === 'ok' || kind === 'offline' ? 'Conectado à nuvem: as edições são compartilhadas com quem usa a mesma senha.' : '';
+  $('cloudSignOut').hidden = !(cloud && (kind === 'ok' || kind === 'offline'));
+}
+function attachCloud(adapter) { cloud = adapter; }
+// Recebe todos os documentos da nuvem. A nuvem manda; só o que existe apenas neste computador (primeira conexão) é enviado.
+function onCloudDocs(docs, meta) {
+  if (!cloudSynced && meta.fromCache) return;   // cópia antiga do navegador: espera a resposta do servidor
+  const local = kv;
+  kv = docs;
+  recuperarXmlLocal(local);
+  if (!cloudSynced && !meta.fromCache) {
+    cloudSynced = true;
+    let migrated = false; try { migrated = !!localStorage.getItem('cloudMigrated'); } catch {}
+    if (!migrated) { migrateUp(local, docs); try { localStorage.setItem('cloudMigrated', '1'); } catch {} }
+  }
+  afterKvChange();
+  scheduleRefresh();
+}
+// Notas (XML) que existem neste computador mas não vieram da nuvem voltam para ela (e ficam na tela). Não se perde nada que foi lido aqui.
+// Exceção: se alguém apagou todos os XML depois (config.xmlApagadoEm), só voltam as notas lidas depois do apagamento.
+function recuperarXmlLocal(local) { uneXml(local, true); }
+function migrateUp(local, cloudDocs) {
+  for (const [id, d] of Object.entries(local)) {
+    if (!d) continue;
+    if (id.startsWith('month-')) { if (!cloudDocs[id]) { cloud.replace(id, d); kv[id] = d; } continue; }
+    const missing = {};
+    for (const [f, v] of Object.entries(d)) if (!(cloudDocs[id] && f in cloudDocs[id])) missing[f] = v;
+    if (Object.keys(missing).length) { cloud.merge(id, missing); kv[id] = { ...(kv[id] || {}), ...missing }; }
+  }
+}
+// Se alguém está digitando numa linha, espera terminar antes de redesenhar a tabela.
+let refreshWanted = false;
+function scheduleRefresh() {
+  const a = document.activeElement;
+  if (a && a.closest && a.closest('#rows') && /^(INPUT|SELECT)$/.test(a.tagName)) {
+    if (!refreshWanted) {      // tenta de novo a cada 4 s enquanto a pessoa continua no campo (rede de segurança)
+      refreshWanted = true;
+      setTimeout(() => { if (refreshWanted) { refreshWanted = false; scheduleRefresh(); } }, 4000);
+    }
+    return;
+  }
+  refreshWanted = false;
+  refreshFromSaved();
+  if ($('dlgBI').open) renderBI();
+  if ($('dlgXml').open) renderXml();
+}
+document.addEventListener('focusout', () => {
+  if (!refreshWanted) return;
+  setTimeout(() => { const a = document.activeElement; if (!(a && a.closest && a.closest('#rows'))) { refreshWanted = false; scheduleRefresh(); } }, 60);
+});
+function askPassword(err) {
+  return new Promise((resolve) => {
+    const dlg = $('dlgPass'); $('passErr').textContent = err || ''; $('passInput').value = '';
+    const done = (v) => { $('passOk').onclick = $('passCancel').onclick = dlg.oncancel = null; dlg.close(); resolve(v); };
+    $('passOk').onclick = () => done($('passInput').value);
+    $('passCancel').onclick = () => done(null);
+    dlg.oncancel = (e) => { e.preventDefault(); done(null); };
+    $('passInput').onkeydown = (e) => { if (e.key === 'Enter') $('passOk').click(); };
+    if (!dlg.open) dlg.showModal();
+    $('passInput').focus();
+  });
+}
+window.painel = { attachCloud, onCloudDocs, setCloudStatus, askPassword };
+
+// Depois das 17h, cotas de hoje sem amarelo também contam como atrasadas (linha vermelha de alerta; a situação não muda).
+const afterCutoff = () => new Date().getHours() >= 17;
+
+function buildItems(months) {
+  buildCount++;
+  const today = todayIso();
+  const from = addDays(today, -lookbackDays());
+  const cutoff = afterCutoff();
+  state.items = []; state.cols = [];
+  let savedAt = null;
+  const noYellow = [];
+  for (const [key, mo] of Object.entries(months)) {
+    if (!savedAt || mo.savedAt > savedAt) savedAt = mo.savedAt;
+    let past = 0, yel = 0;
+    for (const x of dedupeRaw(mo.items)) {       // dedupeRaw também limpa repetidas de planilhas coladas antes desta regra
+      const late = !x.y && x.d >= from && (x.d < today || (x.d === today && cutoff));
+      if (x.d < today) { past++; if (x.y) yel++; }
+      // "orig" identifica a linha pelo nome que veio da planilha; nome e empresa corrigidos à mão (docs nome-/empresa-AAAA-MM) valem por cima.
+      const orig = `${x.d}|${x.l}|${nameKey(cleanName(x.m))}`;
+      if (flat.excluido[orig]) continue;          // linha excluída com o ✕
+      const ov = flat.nome[orig], ovEmp = flat.empresa[orig];
+      const raw = titleName(x.m);
+      state.items.push({ date: x.d, empresa: ovEmp ?? x.e, lote: x.l, produto: x.p, motorista: ov || raw, nome: ov ? cleanName(ov) : cleanName(raw), concluded: !!x.y, late, orig, rawName: raw, edited: !!ov, rawEmpresa: x.e, empresaEditada: ovEmp !== undefined });
+    }
+    mo.cols.forEach((c) => state.cols.push(c));
+    if (past >= 20 && yel === 0) noYellow.push(key);
+  }
+  // Motoristas escritos à mão (documentos manual-AAAA-MM). Se a planilha já traz o mesmo motorista
+  // no mesmo dia e na mesma empresa/lote, vale a planilha e o manual fica de fora.
+  const visto = new Set();
+  state.items.forEach((x) => {
+    visto.add(`${x.date}|${nameKey(x.nome)}|${norm(x.empresa)}`);
+    if (x.lote) visto.add(`${x.date}|${nameKey(x.nome)}|#${x.lote}`);
+  });
+  for (const [id, d] of Object.entries(kv)) {
+    if (!id.startsWith('manual-') || !d) continue;
+    for (const [mid, v] of Object.entries(d)) {
+      if (!v || !v.d || !v.m) continue;
+      const nome = cleanName(v.m);
+      if (visto.has(`${v.d}|${nameKey(nome)}|${norm(v.e || '')}`) || (v.l && visto.has(`${v.d}|${nameKey(nome)}|#${v.l}`))) continue;
+      const late = v.d >= from && (v.d < today || (v.d === today && cutoff));
+      state.items.push({ date: v.d, empresa: v.e || '', lote: v.l || '', produto: v.p || '', motorista: v.m, nome, concluded: false, late, manual: true, mid, mdoc: id });
+      visto.add(`${v.d}|${nameKey(nome)}|${norm(v.e || '')}`);       // dois manuais iguais também não repetem
+      if (v.l) visto.add(`${v.d}|${nameKey(nome)}|#${v.l}`);
+    }
+  }
+  state.savedAt = savedAt;
+  state.warn = noYellow.length
+    ? 'Não achei nenhum motorista em amarelo em ' + noYellow.map((k) => k.split('-').reverse().join('/')).join(', ') + '. A cor pode não ter vindo na colagem: use “Abrir arquivo .xlsx”, que traz as cores com certeza.'
+    : '';
+}
+
+function refreshFromSaved() {
+  const months = loadMonths();
+  const temPlanilha = !!months && Object.keys(months).length > 0;
+  const temManual = Object.keys(kv).some((id) => id.startsWith('manual-') && kv[id] && Object.keys(kv[id]).length);
+  if (!temPlanilha && !temManual) {
+    state.demo = true; state.savedAt = null; state.warn = '';
+    const d = demoData(); state.items = d.items; state.cols = d.cols;
+    $('updated').textContent = 'modo demonstração';
+  } else {
+    state.demo = false;
+    buildItems(months || {});
+    $('updated').textContent = temPlanilha
+      ? 'Dados de ' + new Date(state.savedAt).toLocaleString('pt-BR') + ' · ' + Object.keys(months).length + ' mês(es) carregado(s)'
+      : 'Só motoristas escritos à mão (cole a planilha para ver os demais)';
+  }
+  render();
+}
+
+// Cada mês é um documento; colar ou abrir um arquivo substitui só os meses que vieram nele.
+// Guarda por dia: um novo colar substitui só os dias que vieram nele. Os outros dias já guardados
+// daquele mês continuam do jeito que estavam, mesmo que essa colagem não tenha incluído a planilha inteira.
+function mergeByDay(oldMo, newMo) {
+  const novasDatas = new Set([...newMo.items.map((x) => x.d), ...newMo.cols.map((c) => c.d)]);
+  const antigos = oldMo || { items: [], cols: [] };
+  return {
+    items: antigos.items.filter((x) => !novasDatas.has(x.d)).concat(newMo.items),
+    cols: antigos.cols.filter((c) => !novasDatas.has(c.d)).concat(newMo.cols),
+  };
+}
+
+function importMonths(newMonths) {
+  state.error = '';
+  const existentes = loadMonths() || {};
+  for (const [key, mo] of Object.entries(newMonths)) {
+    const merged = mergeByDay(existentes[key], mo);
+    const json = JSON.stringify(merged);
+    if (json.length > 900000) { state.error = 'A aba de ' + key + ' ficou grande demais para a nuvem (limite de 1 MB por mês).'; continue; }
+    kvReplace('month-' + key, { json, savedAt: mo.savedAt, origin: mo.origin });
+  }
+  refreshFromSaved();
+}
+
+document.addEventListener('paste', (e) => {
+  const t = e.target;
+  if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT')) return;
+  const cd = e.clipboardData;
+  const text = cd ? cd.getData('text/plain') : '';
+  const html = cd ? cd.getData('text/html') : '';
+  if (!text && !html) return;
+  e.preventDefault();
+  let g = null;
+  if (html && /<table/i.test(html)) { try { g = gridFromHtml(html); } catch {} }
+  if (!g) g = gridFromText(text);
+  const parsed = parseGrid(g.grid, g.yellow, new Date());
+  const key = monthKeyOf(parsed);
+  if (!key) { state.error = 'Não reconheci a planilha. Copie a aba do mês inteira (Ctrl+A) — as linhas com datas como “21/09-- 16” precisam estar incluídas.'; render(); return; }
+  importMonths({ [key]: { ...parsed, savedAt: new Date().toISOString(), origin: 'colado' } });
+});
+
+async function openFile(file) {
+  try { importMonths(monthsFromWorkbook(await file.arrayBuffer())); }
+  catch (e) { state.error = e.message; render(); }
+}
+
+// ---------- nomes ----------
+// Tira anotações como "4ª", "04 as 06", "06" do fim do nome.
+function cleanName(s) {
+  let t = String(s || '').replace(/\s+/g, ' ').trim();
+  for (let i = 0; i < 3; i++) t = t.replace(/\s+[-–]?\s*\d+\s*[ªº]?(\s*(?:as|às|a)\s*\d+\s*[ªº]?)?\s*$/i, '').trim();
+  return t.replace(/[-–\s]+$/, '');
+}
+
+// ---------- dados de demonstração ----------
+function demoData() {
+  const emp = [['Agrícola Horizonte', '85128'], ['Armazéns Rio Claro', '85875'], ['Cooperativa Vale Verde', '82800'], ['Terra Forte Bioenergia', '80564'], ['Granja Boa Vista', '79911']];
+  const nomes = ['Carlos Silva', 'João Pereira', 'Marcos Lima', 'Paulo Souza', 'Rogério Alves', 'André Costa', 'Fábio Ramos', 'Luiz Ferreira', 'Sérgio Rocha', 'Diego Martins', 'Ana Ribeiro', 'Tiago Nunes'];
+  const today = todayIso();
+  const items = [], cols = [];
+  let seed = 7; const rnd = () => (seed = (seed * 9301 + 49297) % 233280) / 233280;
+  for (let d = -7; d <= 7; d++) {
+    const date = addDays(today, d);
+    emp.forEach(([e, l], i) => {
+      if (rnd() < 0.25) return;
+      const n = 1 + Math.floor(rnd() * 9);
+      cols.push({ d: date, e, l, p: i < 2 ? 'SOJA' : 'FARELO', c: n + (rnd() < 0.3 ? 1 : 0), n });
+      for (let k = 0; k < n; k++) {
+        const y = d < 0 ? rnd() > 0.05 : d === 0 ? rnd() > 0.6 : false;
+        items.push({ date, empresa: e, lote: l, produto: i < 2 ? 'SOJA' : 'FARELO', motorista: nomes[Math.floor(rnd() * nomes.length)], nome: '', concluded: y, late: !y && d < 0 });
+      }
+    });
+  }
+  items.forEach((x) => { x.nome = cleanName(x.motorista); });
+  return { items, cols };
+}
+
+// ---------- render ----------
+// Texto onde a busca procura: motorista, empresa, lote, produto, data (21/09 ou 2026-09-21) e observação.
+function searchHay(x, obsMap) {
+  return norm([x.motorista, x.empresa, x.lote, x.produto, fmtDate(x.date), x.date, obsMap[noteKey(x)]].filter(Boolean).join(' '));
+}
+
+function filtered() {
+  const today = todayIso();
+  const q = norm(state.busca);
+  const notes = notified();
+  const obsMap = obsAll();
+  return state.items.filter((x) => {
+    // a busca sempre soma com a aba/dia escolhido (Hoje, Atrasados, ou o dia selecionado na barra/calendário) —
+    // pra pesquisar em outro dia, é só trocar pra "Todos" ou escolher aquele dia antes de buscar.
+    if (state.view === 'hoje' && x.date !== today) return false;
+    if (state.view === 'atrasados' && !emAlerta(x)) return false;
+    if (state.view === 'proximos' && !(x.date >= today && x.date <= addDays(today, 7))) return false;
+    if (state.view === 'data' && x.date !== state.dataFiltro) return false;
+    if (state.empresa && x.empresa !== state.empresa) return false;
+    if (q && !searchHay(x, obsMap).includes(q)) return false;
+    if (state.soAvisar && notes[noteKey(x)]) return false;
+    return true;
+  }).sort((a, b) => a.date.localeCompare(b.date) || byNome(a, b) || a.empresa.localeCompare(b.empresa) || a.lote.localeCompare(b.lote));
+}
+
+const ROW_CAP = 400;
+
+function render() {
+  const today = todayIso();
+  const all = state.items;
+  const hoje = all.filter((x) => x.date === today);
+  const hojeConc = hoje.filter((x) => statusOf(x) === 'feito').length;
+  const atrasados = all.filter(emAlerta);
+  const cotasHoje = state.cols.filter((c) => c.d === today).reduce((s, c) => s + c.c, 0);
+
+  // avisos
+  let banner = '';
+  if (state.error) banner += '<div class="banner err">' + esc(state.error) + '</div>';
+  if (state.demo) banner += '<div class="banner">Dados fictícios de demonstração. Cole a aba do mês do Excel Online (Ctrl+A, Ctrl+C, aqui Ctrl+V) ou use “Abrir arquivo .xlsx”.</div>';
+  if (state.warn) banner += '<div class="banner err">' + esc(state.warn) + '</div>';
+  if (state.savedAt) {
+    const age = Date.now() - new Date(state.savedAt).getTime();
+    if (isoOf(new Date(state.savedAt)) !== today) banner += '<div class="banner">Estes dados são de ' + new Date(state.savedAt).toLocaleDateString('pt-BR') + '. Atualize colando a planilha (Ctrl+V).</div>';
+    else if (age > 4 * 3600e3) banner += '<div class="banner">Estes dados foram carregados há mais de 4 horas. Atualize colando a planilha (Ctrl+V).</div>';
+  }
+  $('banner').innerHTML = banner;
+
+  // cartões
+  const kpi = (id, label, value, hint, cls = '') =>
+    `<button class="kpi ${cls} ${state.view === id ? 'active' : ''}" data-view="${id}"><div class="label">${label}</div><div class="value">${value}</div><div class="hint">${hint}</div></button>`;
+  const falta = cotasHoje - hoje.length;
+  $('kpis').innerHTML =
+    kpi('hoje', 'Caminhões hoje', hoje.length, fmtDate(today) + (cotasHoje ? ' · ' + cotasHoje + ' cotas' + (falta > 0 ? ' (' + falta + ' sem motorista)' : '') : '')) +
+    `<div class="kpi ok" style="cursor:default"><div class="label">CT-e feito hoje</div><div class="value">${hojeConc}</div><div class="hint">${hoje.length - hojeConc} pendente(s)</div></div>` +
+    kpi('atrasados', 'Atrasados', atrasados.length, 'sem CT-e (após as 17h ou dias passados), últimos ' + lookbackDays() + ' dias', atrasados.length ? 'bad' : '') +
+    kpi('proximos', 'Próximos 7 dias', all.filter((x) => x.date >= today && x.date <= addDays(today, 7)).length, 'incluindo hoje') +
+    kpi('todos', 'Total carregado', all.length, 'todas as datas');
+  document.querySelectorAll('.kpi[data-view]').forEach((b) => b.onclick = () => setView(b.dataset.view));
+
+  // filtros
+  $('view').innerHTML = [['hoje', 'Hoje'], ['atrasados', 'Atrasados'], ['proximos', 'Próx. 7 dias'], ['todos', 'Todos']]
+    .map(([v, l]) => `<button data-v="${v}" class="${state.view === v ? 'on' : ''}">${l}</button>`).join('');
+  $('view').querySelectorAll('button').forEach((b) => b.onclick = () => setView(b.dataset.v));
+  $('fData').value = state.view === 'data' ? state.dataFiltro : '';
+  const empresas = [...new Set(all.map((x) => x.empresa).filter(Boolean))].sort((a, b) => a.localeCompare(b));
+  $('fEmpresa').innerHTML = '<option value="">Todas as empresas</option>' + empresas.map((e) => `<option ${e === state.empresa ? 'selected' : ''}>${esc(e)}</option>`).join('');
+
+  // gráfico por dia — mostra todo o intervalo carregado (rolagem horizontal); sem dados, cai nos ±7 dias de hoje
+  const todasDatas = [...all.map((x) => x.date), ...state.cols.map((c) => c.d)];
+  const minD = todasDatas.length ? todasDatas.reduce((a, b) => (b < a ? b : a)) : addDays(today, -7);
+  const maxD = todasDatas.length ? todasDatas.reduce((a, b) => (b > a ? b : a)) : addDays(today, 7);
+  const days = []; for (let iso = minD; iso <= maxD; iso = addDays(iso, 1)) days.push(iso);
+  const porDia = new Map();      // uma passada só pelos itens, em vez de filtrar a lista inteira para cada dia
+  all.forEach((x) => {
+    let e = porDia.get(x.date);
+    if (!e) porDia.set(x.date, (e = { ok: 0, late: 0, pend: 0, total: 0 }));
+    e.total++;
+    const st = statusOf(x);
+    if (st === 'feito') e.ok++; else if (emAlerta(x)) e.late++; else e.pend++;
+  });
+  const per = days.map((iso) => ({ iso, ...(porDia.get(iso) || { ok: 0, late: 0, pend: 0, total: 0 }) }));
+  const max = Math.max(1, ...per.map((p) => p.total));
+  const selecionado = state.view === 'data' ? state.dataFiltro : '';
+  const diasEl = $('days');
+  const rolagemAntes = diasEl.scrollLeft;
+  diasEl.innerHTML = per.map((p) => `<div class="day ${p.iso === today ? 'today' : ''} ${p.iso === selecionado ? 'selected' : ''}" data-iso="${p.iso}">
+    <div class="n">${p.total || ''}</div>
+    <div class="bar" style="height:${(p.total / max) * 120}px" title="Clique para ver a lista de ${fmtDate(p.iso)}: ${p.total} (${p.ok} com CT-e, ${p.pend} pendentes, ${p.late} atrasados)">
+      <div class="seg-ok" style="flex:${p.ok}"></div><div class="seg-pend" style="flex:${p.pend}"></div><div class="seg-late" style="flex:${p.late}"></div>
+    </div>
+    <div class="d">${p.iso.slice(8)}/${p.iso.slice(5, 7)}</div></div>`).join('');
+  if (!state._diasCentralizado) {
+    state._diasCentralizado = true;
+    requestAnimationFrame(() => scrollParaHoje(false));   // espera o navegador terminar de desenhar, senão a largura sai errada
+  } else {
+    diasEl.scrollLeft = rolagemAntes;
+  }
+
+  // atrasados por empresa
+  const byEmp = {};
+  atrasados.forEach((x) => { const k = x.empresa || '(sem empresa)'; byEmp[k] = (byEmp[k] || 0) + 1; });
+  const rank = Object.entries(byEmp).sort((a, b) => b[1] - a[1]).slice(0, 8);
+  $('rank').innerHTML = rank.length
+    ? rank.map(([k, n]) => `<div class="row"><span>${esc(k)}</span><b>${n}</b><div class="track"><div class="fill" style="width:${(n / rank[0][1]) * 100}%"></div></div></div>`).join('')
+    : '<div class="empty">Nenhum atrasado</div>';
+
+  // tabela
+  const full = filtered();
+  const list = full.slice(0, ROW_CAP);
+  state.listView = list;
+  $('count').textContent = full.length > ROW_CAP ? `mostrando ${ROW_CAP} de ${full.length}` : `${full.length} motorista(s)`;
+  const notes = notified(), book = phones(), obsMap = obsAll(), pesos = pesosPorLinha().mapa;
+  $('rows').innerHTML = list.length ? list.map((x, i) => {
+    const tag = x.produto ? `<span class="tag">${esc(x.produto)}</span>` : '';
+    const manual = x.manual ? `<span class="tag manual" title="Escrito à mão, não vem da planilha">manual</span>` : '';
+    const editado = x.edited ? `<span class="tag edit" title="Nome corrigido à mão. Na planilha: ${esc(x.rawName)}">editado</span>` : '';
+    const p = pesos.get(x), pm = flat.peso[noteKey(x)];
+    const peso = pm ? `<span class="tag peso man" data-i="${i}" title="Peso digitado à mão (dois cliques para mudar)${p ? '. Pela NF-e: ' + kgTxt(p.kg) : ''}">${kgTxt(pm)}</span>`
+      : p ? `<span class="tag peso" data-i="${i}" title="Peso da NF-e ${esc(p.notas.join(', '))}${p.placa ? ' · placa ' + esc(p.placa) : ''} (dois cliques para mudar)">${kgTxt(p.kg)}</span>`
+      : `<span class="tag peso vazio" data-i="${i}" title="Clique para digitar o peso">&nbsp;</span>`;
+    const empEditada = x.empresaEditada ? `<span class="tag edit" title="Empresa corrigida à mão. Na planilha: ${esc(x.rawEmpresa)}">editada</span>` : '';
+    const st = statusOf(x);
+    const rowCls = st === 'feito' ? 'row-ok' : emAlerta(x) ? 'row-late' : '';     // vermelha = alerta, mesmo com a situação em "Falta CT-e"
+    return `<tr class="${rowCls}"><td class="num">${fmtDate(x.date)}</td><td class="empcell" data-i="${i}" title="Dois cliques para editar a empresa">${esc(x.empresa)}${tag}${empEditada}</td><td class="num">${esc(x.lote)}</td><td class="nomecell" data-i="${i}" title="Dois cliques para editar o nome">${esc(x.motorista)}${editado}${manual}${peso}</td>${obsCell(x, i, obsMap)}${situacaoCell(x, i)}${waCell(x, i, notes, book)}<td class="delcell"><button class="rowdel" data-act="delrow" data-i="${i}" title="Excluir esta linha">✕</button></td></tr>`;
+  }).join('') : `<tr><td colspan="8" class="empty">${emptyMessage()}</td></tr>`;
+}
+
+// Explica por que a lista está vazia, em vez de só dizer "nada aqui" — principalmente na aba Hoje,
+// que costuma ficar vazia quando a planilha colada ainda não tem o bloco do dia.
+function emptyMessage() {
+  if (state.busca.trim()) return 'Nada encontrado para “' + esc(state.busca) + '”. Confira a grafia ou limpe a busca.';
+  if (state.view === 'hoje' && !state.items.some((x) => x.date === todayIso())) {
+    const maisRecente = state.items.reduce((a, x) => (x.date > a ? x.date : a), '');
+    return 'Ainda não há dados para hoje (' + fmtDate(todayIso()) + ').' +
+      (maisRecente ? ' Os dados carregados vão até ' + fmtDate(maisRecente) + '. Cole a aba do mês atualizada (Ctrl+V) ou abra o arquivo .xlsx mais recente.' : ' Cole a planilha (Ctrl+V) ou abra o arquivo .xlsx.');
+  }
+  return 'Nada para mostrar com esses filtros.';
+}
+
+// ---------- copiar ----------
+async function copyText(text, btn) {
+  try { await navigator.clipboard.writeText(text); }
+  catch {
+    const ta = document.createElement('textarea'); ta.value = text; document.body.appendChild(ta); ta.select();
+    document.execCommand('copy'); ta.remove();
+  }
+  const old = btn.textContent; btn.textContent = 'Copiado!'; setTimeout(() => (btn.textContent = old), 1500);
+}
+
+// ---------- resumo do dia: tabela "Dia da semana | Lote | Cotas", no estilo da planilha ----------
+const DIAS_SEMANA = ['Domingo', 'Segunda-Feira', 'Terça-Feira', 'Quarta-Feira', 'Quinta-Feira', 'Sexta-Feira', 'Sábado'];
+
+// Dia que o resumo mostra por padrão: o dia selecionado na barra/calendário, senão hoje.
+const diaDoResumo = () => (state.view === 'data' && state.dataFiltro ? state.dataFiltro : todayIso());
+
+// Uma linha por empresa/lote, na ordem da planilha. Cotas = total de cotas do bloco (o número depois de "--" na planilha).
+// Motoristas escritos à mão de uma empresa/lote que não está na planilha entram com a contagem deles.
+function resumoDados(iso) {
+  const grupos = new Map();
+  state.cols.filter((c) => c.d === iso).forEach((c) => {
+    const k = norm(c.e) + '|' + c.l;
+    const g = grupos.get(k);
+    if (g) g.cotas += c.c; else grupos.set(k, { empresa: c.e, lote: c.l, cotas: c.c });
+  });
+  const extras = new Map();
+  state.items.filter((x) => x.date === iso && x.manual).forEach((x) => {
+    const k = norm(x.empresa) + '|' + x.lote;
+    if (grupos.has(k)) return;
+    const g = extras.get(k);
+    if (g) g.cotas++; else extras.set(k, { empresa: x.empresa, lote: x.lote, cotas: 1 });
+  });
+  const [y, m, d] = iso.split('-').map(Number);
+  return { dia: DIAS_SEMANA[new Date(y, m - 1, d).getDay()], iso, linhas: [...grupos.values(), ...extras.values()] };
+}
+const resumoTotal = (d) => d.linhas.reduce((s, l) => s + l.cotas, 0);
+
+// Texto separado por tabulação: cola direto em colunas no Excel.
+// Tabela com borda: a mesma aparência no painel (classe) e ao colar em Teams/Excel/Word/e-mail. Na versão para copiar, a borda e o
+// alinhamento vão escritos de dois jeitos (atributos HTML antigos e estilo), porque alguns programas só entendem um deles.
+function resumoHtml(d, comEstilo) {
+  const cel = (tag, txt, align) => comEstilo
+    ? `<${tag} align="${align}" style="border:1px solid #000;padding:4px 10px;text-align:${align};color:#000;background:#fff;text-transform:none;letter-spacing:normal;font-family:Calibri,Arial,sans-serif;font-size:14pt;${tag === 'th' ? 'font-weight:bold;' : 'font-weight:normal;'}">${tag === 'th' ? '<b>' : ''}${esc(txt)}${tag === 'th' ? '</b>' : ''}</${tag}>`
+    : `<${tag} style="text-align:${align}">${esc(txt)}</${tag}>`;
+  return `<table${comEstilo ? ' border="1" cellspacing="0" cellpadding="6" style="border-collapse:collapse;border:1px solid #000;background:#fff"' : ' class="resumotab"'}><thead><tr>${cel('th', d.dia, 'left')}${cel('th', 'Lote', 'center')}${cel('th', 'Cotas', 'right')}</tr></thead><tbody>` +
+    d.linhas.map((l) => `<tr>${cel('td', l.empresa, 'left')}${cel('td', l.lote, 'center')}${cel('td', String(l.cotas), 'right')}</tr>`).join('') + '</tbody></table>';
+}
+// Tabela desenhada com caracteres (┌─┬─┐ │ ├─┼─┤ └─┴─┘). Dentro de ``` o WhatsApp usa letra de largura fixa e as linhas ficam alinhadas.
+function resumoTextoComLinhas(d) {
+  const nfc = (s) => String(s ?? '').normalize('NFC');
+  const tam = (s) => [...s].length;
+  const linhas = [[d.dia, 'Lote', 'Cotas'], ...d.linhas.map((l) => [nfc(l.empresa), nfc(l.lote), String(l.cotas)])].map((r) => r.map(nfc));
+  const w = [0, 1, 2].map((i) => Math.max(...linhas.map((r) => tam(r[i]))));
+  const esq = (s, n) => s + ' '.repeat(n - tam(s));
+  const dir = (s, n) => ' '.repeat(n - tam(s)) + s;
+  const meio = (s, n) => { const f = n - tam(s), e = Math.floor(f / 2); return ' '.repeat(e) + s + ' '.repeat(f - e); };
+  const fmt = (r) => '│ ' + [esq(r[0], w[0]), meio(r[1], w[1]), dir(r[2], w[2])].join(' │ ') + ' │';
+  const barra = (a, m, b) => a + w.map((n) => '─'.repeat(n + 2)).join(m) + b;
+  return ['```', barra('┌', '┬', '┐'), fmt(linhas[0]), barra('├', '┼', '┤'), ...linhas.slice(1).map(fmt), barra('└', '┴', '┘'), '```'].join('\n');
+}
+
+function feedbackBotao(btn, txt = 'Copiado!') { const old = btn.textContent; btn.textContent = txt; setTimeout(() => (btn.textContent = old), 1500); }
+
+// Um botão só. Faz o mesmo que selecionar a tabela com o mouse e copiar (que o WhatsApp aceita), mas manda dois formatos:
+//  - texto com as linhas da tabela desenhadas (WhatsApp e qualquer conversa que só aceite texto);
+//  - tabela com borda em HTML (Teams, Excel, Word, e-mail).
+async function copiarResumo(iso, btn) {
+  const d = resumoDados(iso);
+  if (!d.linhas.length) { alert('Não há cotas para ' + fmtDate(iso) + '.'); return; }
+  const html = resumoHtml(d, true), texto = resumoTextoComLinhas(d);
+
+  // A tabela fica numa área escondida, selecionada, e o navegador faz o "copiar" de verdade;
+  // no evento de copiar trocamos o conteúdo pelos dois formatos acima.
+  const caixa = document.createElement('div');
+  caixa.style.cssText = 'position:fixed;left:-10000px;top:0;background:#fff;color:#000';
+  caixa.innerHTML = html;
+  document.body.appendChild(caixa);
+  const sel = window.getSelection(), faixa = document.createRange();
+  faixa.selectNode(caixa.firstElementChild);
+  sel.removeAllRanges(); sel.addRange(faixa);
+  const aoCopiar = (e) => { e.clipboardData.setData('text/plain', texto); e.clipboardData.setData('text/html', html); e.preventDefault(); };
+  document.addEventListener('copy', aoCopiar);
+  let ok = false;
+  try { ok = document.execCommand('copy'); } catch {}
+  document.removeEventListener('copy', aoCopiar);
+  sel.removeAllRanges(); caixa.remove();
+  if (ok) { feedbackBotao(btn); return; }
+
+  try {                                                          // plano B: a API de área de transferência
+    await navigator.clipboard.write([new ClipboardItem({
+      'text/html': new Blob([html], { type: 'text/html' }),
+      'text/plain': new Blob([texto], { type: 'text/plain' }),
+    })]);
+    feedbackBotao(btn); return;
+  } catch {}
+  await copyText(texto, btn);                                    // último recurso: só o texto
+}
+function renderResumo() {
+  const iso = $('resumoData').value || diaDoResumo();
+  const d = resumoDados(iso);
+  $('resumoTabela').innerHTML = d.linhas.length ? resumoHtml(d, false) : `<p class="empty">Não há cotas para ${fmtDate(iso)} (${d.dia}) na planilha carregada.</p>`;
+  $('resumoTotal').textContent = d.linhas.length ? `${fmtDate(iso)} · ${d.linhas.length} empresa(s)/lote(s) · ${resumoTotal(d)} cotas no total` : '';
+}
+
+// ---------- lista do dia ----------
+const byNome = (a, b) => a.nome.localeCompare(b.nome, 'pt', { sensitivity: 'base' });
+
+function todayList(onlyPend) {
+  const today = todayIso();
+  let list = state.items.filter((x) => x.date === today);
+  if (onlyPend) list = list.filter((x) => statusOf(x) !== 'feito');
+  return list.sort(byNome);
+}
+// Empresa/lote/produto viajam junto na mesma linha do motorista, já que a lista não agrupa mais por empresa.
+const infoCarga = (x) => [x.empresa, x.lote ? 'lote ' + x.lote : '', x.produto].filter(Boolean).join(' – ');
+function listText(onlyPend) {
+  const list = todayList(onlyPend);
+  const head = 'Caminhões do dia ' + fmtDate(todayIso()) + (onlyPend ? ' (falta CT-e)' : '');
+  if (!list.length) return head + '\nNenhum caminhão.';
+  return head + '\n\n' + list.map((x, i) => (i + 1) + '. ' + x.motorista + (infoCarga(x) ? ' – ' + infoCarga(x) : '') +
+    (statusOf(x) === 'feito' ? ' ✅' : emAlerta(x) ? ' 🔴' : ' ⏳')).join('\n') +
+    '\n\n✅ CT-e feito   🔴 sem CT-e (atrasado)   ⏳ falta CT-e   Total: ' + list.length;
+}
+function printList() {
+  const only = $('listOnlyPend').checked;
+  const list = todayList(only);
+  $('printArea').innerHTML = '<h2>Caminhões do dia ' + fmtDate(todayIso()) + (only ? ' (falta CT-e)' : '') + ' — ' + list.length + '</h2>' +
+    '<table><thead><tr><th>#</th><th>Motorista</th><th>Empresa / lote / produto</th><th>CT-e</th></tr></thead><tbody>' +
+    list.map((x, i) => `<tr><td>${i + 1}</td><td>${esc(x.motorista)}</td><td>${esc(infoCarga(x))}</td><td>${statusOf(x) === 'feito' ? 'Feito' : statusOf(x) === 'carregado' ? 'Carregado sem CT-e' : emAlerta(x) ? 'Falta CT-e (atrasado)' : 'Falta CT-e'}</td></tr>`).join('') +
+    '</tbody></table>';
+  window.print();
+}
+
+// ---------- aviso por WhatsApp ----------
+const DEFAULT_MSG = 'Olá, {primeiro_nome}! Sua carga para {empresa} está agendada com sucesso para {data}. Qualquer dúvida, é só responder esta mensagem.';
+const phones = () => flat.phones;                 // { nome normalizado: telefone }
+const notified = () => flat.notified;             // { data|lote|nome: momento do aviso }
+const nameKey = (s) => norm(s).replace(/\s+/g, ' ');
+const noteKey = (x) => `${x.date}|${x.lote}|${nameKey(x.nome)}`;
+
+// ---------- situação manual e observações ----------
+// Cor amarela manda: se está em amarelo, é "feito". Sem isso, vale a escolha manual da linha; sem escolha, é "Falta CT-e".
+// "Carregado sem CT-e" só existe quando alguém escolhe. O horário (17h) e os dias que já passaram não mudam a situação:
+// só deixam a linha vermelha de alerta (veja emAlerta).
+const situacoes = () => flat.situacao;
+const obsAll = () => flat.obs;
+function statusOf(x) {
+  if (x.concluded) return 'feito';
+  return situacoes()[noteKey(x)] || 'falta';
+}
+// Linha vermelha: sem CT-e feito e (depois das 17h de hoje, dia que já passou, ou marcado à mão como carregado sem CT-e).
+function emAlerta(x) {
+  const st = statusOf(x);
+  return st !== 'feito' && (x.late || st === 'carregado');
+}
+function situacaoCell(x, i) {
+  const st = statusOf(x);
+  const cls = st === 'feito' ? 'ok' : st === 'carregado' ? 'late' : 'pend';
+  const opt = (v, label) => `<option value="${v}" ${st === v ? 'selected' : ''}>${label}</option>`;
+  // Amarelo na planilha manda: enquanto x.concluded for verdadeiro, a situação fica travada em "CT-e feito".
+  const lock = x.concluded ? ' disabled title="Vem em amarelo na planilha"' : '';
+  return `<td><select class="stbadge ${cls}" data-i="${i}" data-act="situacao"${lock}>${opt('falta', 'Falta CT-e')}${opt('carregado', 'Carregado sem CT-e')}${opt('feito', 'CT-e feito')}</select></td>`;
+}
+function obsCell(x, i, obsMap) {
+  const v = obsMap[noteKey(x)] || '';
+  return `<td><input class="obs" data-i="${i}" data-act="obs" placeholder="Observação (Enter)" value="${esc(v)}"></td>`;
+}
+
+// Aceita (11) 91234-5678, 11912345678, +55 11 91234-5678... Devolve 55 + DDD + número, ou '' se inválido.
+function cleanPhone(raw) {
+  let d = String(raw ?? '').replace(/\D/g, '').replace(/^0+/, '');
+  if (d.length === 10 || d.length === 11) d = '55' + d;
+  return (d.length === 12 || d.length === 13) && d.startsWith('55') ? d : '';
+}
+// Nome igual; ou, se só houver um contato compatível ("Hilton Valdomiro" x "Hilton Valdomiro Ebertz"), usa esse.
+function phoneFor(x, book = phones()) {
+  const k = nameKey(x.nome);
+  if (book[k]) return book[k];
+  const hits = new Set(Object.keys(book).filter((b) => b.startsWith(k + ' ') || k.startsWith(b + ' ')).map((b) => book[b]));
+  return hits.size === 1 ? [...hits][0] : '';
+}
+
+function waMessage(x, tpl = cfgGet('waMsg', DEFAULT_MSG)) {
+  const nome = x.nome || '';
+  const first = nome.split(' ')[0] || '';
+  const cap = first.charAt(0).toUpperCase() + first.slice(1).toLowerCase();
+  return tpl.replaceAll('{primeiro_nome}', cap).replaceAll('{nome}', nome).replaceAll('{empresa}', x.empresa)
+    .replaceAll('{lote}', x.lote).replaceAll('{cota}', x.lote).replaceAll('{produto}', x.produto).replaceAll('{data}', fmtDate(x.date));
+}
+function waUrl(phone, text) {
+  const q = encodeURIComponent(text);
+  return store.get('waMode', 'web') === 'app' ? `https://wa.me/${phone}?text=${q}` : `https://web.whatsapp.com/send?phone=${phone}&text=${q}`;
+}
+function markNotified(x) { const k = noteKey(x); kvSet('notified-' + monthOf(k), encKey(k), new Date().toISOString()); }
+
+function waCell(x, i, notes, book) {
+  const phone = phoneFor(x, book);
+  const at = notes[noteKey(x)];
+  if (!phone) return `<td class="wa"><input class="tel" data-i="${i}" placeholder="Telefone com DDD" inputmode="tel"> <button data-act="savefone" data-i="${i}">Salvar</button></td>`;
+  if (at) return `<td class="wa"><span class="done">✓ Avisado ${new Date(at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</span> <button class="again" data-act="avisar" data-i="${i}">reenviar</button></td>`;
+  return `<td class="wa"><button class="go" data-act="avisar" data-i="${i}">Avisar</button> <button class="again" data-act="trocafone" data-i="${i}" title="Trocar o telefone guardado">✎</button></td>`;
+}
+
+$('rows').addEventListener('click', (e) => {
+  const b = e.target.closest('button[data-act]');
+  if (!b) return;
+  const x = state.listView[Number(b.dataset.i)];
+  if (!x) return;
+  if (b.dataset.act === 'avisar') {
+    const phone = phoneFor(x);
+    if (!phone) return;
+    window.open(waUrl(phone, waMessage(x)), 'whatsapp_painel');   // reaproveita a mesma aba do WhatsApp
+    markNotified(x);
+    render();
+  } else if (b.dataset.act === 'savefone') {
+    const inp = b.parentElement.querySelector('input.tel');
+    const p = cleanPhone(inp.value);
+    if (!p) { inp.value = ''; inp.placeholder = 'Inválido: use DDD + número'; inp.style.borderColor = 'var(--bad)'; return; }
+    kvSet('phones', encKey(nameKey(x.nome)), p);
+    render();
+  } else if (b.dataset.act === 'trocafone') {
+    kvDelete('phones', encKey(nameKey(x.nome)));
+    render();
+  } else if (b.dataset.act === 'delrow') {
+    if (confirm('Excluir "' + x.motorista + '" (' + fmtDate(x.date) + ', ' + (x.empresa || 'sem empresa') + ') da lista?')) {
+      if (x.manual) {                                                          // escrito à mão: apaga o registro (e cópias iguais)
+        const igual = (r) => r && r.d === x.date && nameKey(cleanName(r.m)) === nameKey(x.nome) && norm(r.e || '') === norm(x.empresa);
+        for (const [id, d] of Object.entries(kv)) if (id.startsWith('manual-') && d) for (const [mid, r] of Object.entries(d)) if (igual(r)) kvDelete(id, mid);
+      }
+      else kvSet('excluido-' + monthOf(x.date), encKey(x.orig), 1);            // veio da planilha: fica escondido, mesmo colando de novo
+      refreshFromSaved();
+    }
+  }
+});
+// Observação: grava e mostra um contorno verde rápido de "salvo".
+function saveObs(inp) {
+  const x = state.listView[Number(inp.dataset.i)];
+  if (!x) return false;
+  const k = noteKey(x), doc = 'obs-' + monthOf(k);
+  const novo = inp.value.trim() ? inp.value : '';
+  if (novo === (flat.obs[k] || '')) return false;
+  if (novo) kvSet(doc, encKey(k), novo); else kvDelete(doc, encKey(k));
+  return true;
+}
+function flashSaved(inp) { inp.classList.add('saved'); setTimeout(() => inp.classList.remove('saved'), 1200); }
+
+$('rows').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && e.target.matches('input.tel')) e.target.parentElement.querySelector('button[data-act=savefone]').click();
+  if (e.key === 'Enter' && e.target.matches('input.obs')) {
+    e.preventDefault();
+    saveObs(e.target);
+    flashSaved(e.target);
+    e.target.blur();
+  }
+});
+
+// Nome do motorista: dois cliques para corrigir. Enter salva, Esc cancela.
+// Nome de planilha: guarda a correção por cima (a planilha colada de novo não a desfaz). Nome manual: altera o próprio registro.
+function renameDriver(x, novoNome) {
+  const nome = novoNome.trim();
+  if (!nome || nome === x.motorista) { render(); return; }
+  const oldKey = noteKey(x);
+  const oldName = nameKey(x.nome), newName = nameKey(cleanName(nome));
+  const novoX = { ...x, nome: cleanName(nome), motorista: nome };
+  const newKey = noteKey(novoX);
+  // leva situação, observação e "avisado" da linha para o nome novo
+  for (const kind of ['situacao', 'obs', 'peso', 'notified']) {
+    const v = flat[kind][oldKey];
+    if (v !== undefined && oldKey !== newKey) { kvSet(kind + '-' + monthOf(newKey), encKey(newKey), v); kvDelete(kind + '-' + monthOf(oldKey), encKey(oldKey)); }
+  }
+  // se o telefone estava no nome antigo e o novo ainda não tem, leva junto
+  if (flat.phones[oldName] && !flat.phones[newName]) kvSet('phones', encKey(newName), flat.phones[oldName]);
+  if (x.manual) {
+    const atual = (kv[x.mdoc] && kv[x.mdoc][x.mid]) || {};
+    kvSetMany(x.mdoc, { [x.mid]: { ...atual, m: nome } });
+  } else if (nameKey(cleanName(nome)) === nameKey(cleanName(x.rawName)) && nome === x.rawName) {
+    kvDelete('nome-' + monthOf(x.date), encKey(x.orig));      // voltou ao nome da planilha
+  } else {
+    kvSet('nome-' + monthOf(x.date), encKey(x.orig), nome);
+  }
+  refreshFromSaved();
+}
+// Empresa: mesma ideia do nome. Planilha: guarda a correção só desta linha (doc empresa-AAAA-MM). Manual: altera o registro.
+function renameEmpresa(x, novaEmpresa) {
+  const emp = novaEmpresa.trim();
+  if (!emp || emp === x.empresa) { render(); return; }
+  if (x.manual) {
+    const atual = (kv[x.mdoc] && kv[x.mdoc][x.mid]) || {};
+    kvSetMany(x.mdoc, { [x.mid]: { ...atual, e: emp } });
+  } else if (emp === x.rawEmpresa) {
+    kvDelete('empresa-' + monthOf(x.date), encKey(x.orig));       // voltou à empresa da planilha
+  } else {
+    kvSet('empresa-' + monthOf(x.date), encKey(x.orig), emp);
+  }
+  refreshFromSaved();
+}
+// Peso digitado à mão: "37,46" = toneladas; "37460" ou "37460 kg" = quilos; "37,46 t" = toneladas. Vazio apaga o que foi digitado.
+function lerPesoDigitado(txt) {
+  const m = String(txt).trim().toLowerCase().match(/^([\d.,]+)\s*(kg|kgs|t|ton|tn)?$/);
+  if (!m) return null;
+  let n = m[1];
+  if (n.includes(',')) n = n.replace(/\./g, '').replace(',', '.');
+  else if (/^\d{1,3}(\.\d{3})+$/.test(n)) n = n.replace(/\./g, '');
+  const v = parseFloat(n);
+  if (!Number.isFinite(v) || v <= 0) return null;
+  return m[2] ? (m[2].startsWith('k') ? v : v * 1000) : (v >= 1000 ? v : v * 1000);
+}
+function editarPeso(span) {
+  const x = state.listView[Number(span.dataset.i)];
+  if (!x || span.querySelector('input') || span.tagName === 'INPUT') return;
+  const k = noteKey(x), atual = flat.peso[k];
+  const inp = document.createElement('input');
+  inp.type = 'text'; inp.className = 'pesoedit'; inp.inputMode = 'decimal'; inp.placeholder = 'ex.: 37,46'; inp.title = 'Em toneladas (37,46) ou em kg (37460 kg). Enter salva.';
+  const p = pesosPorLinha().mapa.get(x);
+  const base = atual || (p && p.kg) || 0;
+  inp.value = base ? (base / 1000).toLocaleString('pt-BR', { maximumFractionDigits: 3, useGrouping: false }) : '';
+  span.replaceWith(inp);
+  inp.focus(); inp.select();
+  let feito = false;
+  const fim = (salvar) => {
+    if (feito) return; feito = true;
+    if (salvar) {
+      const t = inp.value.trim();
+      if (!t) { if (atual) kvDelete('peso-' + monthOf(k), encKey(k)); }
+      else {
+        const kg = lerPesoDigitado(t);
+        if (kg == null) { alert('Não entendi esse peso. Digite, por exemplo, 37,46 (toneladas) ou 37460 kg.'); render(); return; }
+        if (Math.round(kg) !== Math.round(base)) kvSet('peso-' + monthOf(k), encKey(k), Math.round(kg));
+      }
+      refreshFromSaved();
+    } else render();
+  };
+  inp.addEventListener('keydown', (ev) => {
+    if (ev.key === 'Enter') { ev.preventDefault(); fim(true); }
+    else if (ev.key === 'Escape') { ev.preventDefault(); fim(false); }
+  });
+  inp.addEventListener('blur', () => fim(true));
+}
+$('rows').addEventListener('click', (e) => { const s = e.target.closest('.tag.peso.vazio'); if (s) editarPeso(s); });
+$('rows').addEventListener('dblclick', (e) => {
+  const pesoTag = e.target.closest('.tag.peso');
+  if (pesoTag) { editarPeso(pesoTag); return; }
+  const td = e.target.closest('td.nomecell, td.empcell');
+  if (!td || td.querySelector('input')) return;
+  const x = state.listView[Number(td.dataset.i)];
+  if (!x) return;
+  const ehEmpresa = td.classList.contains('empcell');
+  const inp = document.createElement('input');
+  inp.type = 'text'; inp.className = ehEmpresa ? 'empedit' : 'nomeedit'; inp.value = ehEmpresa ? x.empresa : x.motorista;
+  if (ehEmpresa) {                                  // sugere as empresas que já existem
+    inp.setAttribute('list', 'dlEmpresas');
+    $('dlEmpresas').innerHTML = [...new Set(state.items.map((i) => i.empresa).filter(Boolean))].sort((a, b) => a.localeCompare(b)).map((v) => `<option value="${esc(v)}">`).join('');
+  }
+  td.textContent = ''; td.appendChild(inp);
+  inp.focus(); inp.select();
+  let feito = false;
+  const fim = (salvar) => { if (feito) return; feito = true; if (!salvar) render(); else if (ehEmpresa) renameEmpresa(x, inp.value); else renameDriver(x, inp.value); };
+  inp.addEventListener('keydown', (ev) => {
+    if (ev.key === 'Enter') { ev.preventDefault(); fim(true); }
+    else if (ev.key === 'Escape') { ev.preventDefault(); fim(false); }
+  });
+  inp.addEventListener('blur', () => fim(true));
+});
+$('rows').addEventListener('change', (e) => {
+  const sel = e.target.closest('select[data-act=situacao]');
+  if (sel) {
+    const x = state.listView[Number(sel.dataset.i)];
+    if (!x) return;
+    const k = noteKey(x); kvSet('situacao-' + monthOf(k), encKey(k), sel.value);
+    render();
+    return;
+  }
+  const obsInput = e.target.closest('input.obs');
+  if (obsInput && saveObs(obsInput)) flashSaved(obsInput);
+});
+
+function importPhones(text) {
+  const novos = {};
+  let ok = 0, bad = 0;
+  text.split(/\r?\n/).forEach((line) => {
+    if (!line.trim()) return;
+    const m = line.match(/\+?\(?\d[\d\s().-]{8,}\d/);
+    const name = m ? cleanName(line.replace(m[0], ' ').replace(/[\t;,|]+/g, ' ').replace(/\s+/g, ' ').trim()) : '';
+    const p = m ? cleanPhone(m[0]) : '';
+    if (name && p) { novos[encKey(nameKey(name))] = p; ok++; } else bad++;
+  });
+  if (ok) kvSetMany('phones', novos);
+  return { ok, bad };
+}
+// Uma linha por motorista, "Nome - (54) 99911-2233": pode ser colada de volta em "Adicionar telefones".
+function phonesText() {
+  const fmt = (p) => { const n = p.replace(/^55/, ''); return n.length === 11 ? `(${n.slice(0, 2)}) ${n.slice(2, 7)}-${n.slice(7)}` : `(${n.slice(0, 2)}) ${n.slice(2, 6)}-${n.slice(6)}`; };
+  const title = (k) => k.replace(/\b\p{L}/gu, (c) => c.toUpperCase());
+  return Object.entries(phones()).sort((a, b) => a[0].localeCompare(b[0])).map(([k, p]) => `${title(k)} - ${fmt(p)}`).join('\n');
+}
+function waRefreshDialog() {
+  const sample = state.items.find((x) => x.nome) || { nome: 'Carlos Silva', empresa: 'Agrícola Horizonte', lote: '85128', produto: 'SOJA', date: todayIso() };
+  $('waPreview').textContent = 'Prévia: ' + waMessage(sample, $('waMsg').value);
+  $('waCount').textContent = Object.keys(phones()).length + ' telefone(s) guardado(s)' + (cloud ? ' (compartilhados)' : ' neste computador') + '.';
+}
+
+// ---------- notas e CT-e (XML) ----------
+const kgTxt = (kg) => kg >= 1000
+  ? (kg / 1000).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' t'
+  : Math.round(kg).toLocaleString('pt-BR') + ' kg';
+
+// Lê o XML de uma NF-e ou de um CT-e (layout padrão da SEFAZ) e devolve um registro pequeno; null se não for nenhum dos dois.
+//   NF-e: peso = soma dos volumes (pesoB bruto; se não houver, pesoL líquido; se não houver, itens em kg/t).
+//   CT-e: peso = "peso bruto" da carga (ou a maior quantidade em kg/t); guarda as chaves das notas que ele cobre.
+function lerXml(texto) {
+  const doc = new DOMParser().parseFromString(texto, 'application/xml');
+  if (doc.getElementsByTagName('parsererror').length) return null;
+  const todos = (ctx, tag) => (ctx ? [...ctx.getElementsByTagNameNS('*', tag)] : []);
+  const um = (ctx, tag) => todos(ctx, tag)[0] || null;
+  const txt = (ctx, tag) => { const e = um(ctx, tag); return e ? e.textContent.trim() : ''; };
+  const num = (s) => { const n = parseFloat(String(s).replace(',', '.')); return Number.isFinite(n) ? n : 0; };
+  const dia = (s) => (String(s).match(/^(\d{4}-\d{2}-\d{2})/) || [])[1] || '';
+  const raiz = (tag, prefixo) => todos(doc, tag).find((e) => (e.getAttribute('Id') || '').startsWith(prefixo)) || null;
+  const chaveDe = (el) => (el.getAttribute('Id') || '').replace(/\D/g, '');
+
+  const cte = raiz('infCte', 'CTe');          // o CT-e vem primeiro: dentro dele existe uma tag infNFe só com a chave da nota
+  if (cte) {
+    const ide = um(cte, 'ide');
+    const qtds = todos(cte, 'infQ').map((q) => {
+      const un = txt(q, 'cUnid'), v = num(txt(q, 'qCarga'));
+      return { kg: un === '01' ? v : un === '02' ? v * 1000 : null, tipo: txt(q, 'tpMed') };
+    }).filter((q) => q.kg != null);
+    const bruto = qtds.find((q) => /bruto/i.test(q.tipo));
+    return {
+      t: 'cte', c: chaveDe(cte), n: txt(ide, 'nCT'), d: dia(txt(ide, 'dhEmi') || txt(ide, 'dEmi')),
+      e: txt(um(cte, 'emit'), 'xNome'), r: txt(um(cte, 'rem'), 'xNome'), p: txt(um(cte, 'dest'), 'xNome'),
+      kg: bruto ? bruto.kg : Math.max(0, ...qtds.map((q) => q.kg)),
+      vf: num(txt(um(cte, 'vPrest'), 'vTPrest')),
+      nfs: todos(um(cte, 'infDoc'), 'chave').map((e) => e.textContent.trim()).filter(Boolean),
+    };
+  }
+  const nfe = raiz('infNFe', 'NFe');
+  if (nfe) {
+    const ide = um(nfe, 'ide'), transp = um(nfe, 'transp');
+    let kl = 0, kb = 0, itens = 0;
+    todos(transp, 'vol').forEach((v) => { kl += num(txt(v, 'pesoL')); kb += num(txt(v, 'pesoB')); });
+    if (!kl && !kb) todos(nfe, 'det').forEach((det) => {
+      const p = um(det, 'prod'), un = txt(p, 'uCom').toLowerCase(), q = num(txt(p, 'qCom'));
+      if (/^(kg|kgs|quilo|quilos)$/.test(un)) itens += q; else if (/^(t|tn|ton|tons|tonelada|toneladas)$/.test(un)) itens += q * 1000;
+    });
+    // Motorista e placa costumam vir no texto complementar: "... Motorista: FULANO | CPF: ... - Placa: ABC1D23".
+    // O CPF não é guardado.
+    const cpl = txt(nfe, 'infCpl');
+    const motorista = ((cpl.match(/Motorista:\s*(.+?)\s*(?:\||CPF|Placa|$)/i) || [])[1] || '').trim();
+    const placa = txt(um(transp, 'veicTransp'), 'placa') || ((cpl.match(/Placa:\s*([A-Za-z0-9-]{6,8})/i) || [])[1] || '');
+    const rec = {
+      t: 'nfe', c: chaveDe(nfe), n: txt(ide, 'nNF'), s: txt(ide, 'serie'), d: dia(txt(ide, 'dhEmi') || txt(ide, 'dEmi')),
+      e: txt(um(nfe, 'emit'), 'xNome'), p: txt(um(nfe, 'dest'), 'xNome'),
+      tr: txt(um(transp, 'transporta'), 'xNome'), pl: placa.toUpperCase(),
+      kg: kb || kl || itens, kl,
+    };
+    if (motorista) rec.m = motorista;
+    const prod = txt(um(um(nfe, 'det'), 'prod'), 'xProd');       // produto do primeiro item (soja, farelo...)
+    if (prod) rec.pr = prod.slice(0, 80);
+    return rec;
+  }
+  return null;
+}
+
+// Guarda um documento por dia (xml-AAAA-MM-DD), com um campo por chave de acesso: ler o mesmo XML duas vezes só atualiza.
+async function importarXml(arquivos) {
+  const r = { nfe: 0, cte: 0, jaTinha: 0, ignorados: [] };
+  const lotes = {}, vistos = new Set();
+  for (const f of arquivos) {
+    if (!/\.xml$/i.test(f.name)) { r.ignorados.push(f.name); continue; }
+    let rec = null;
+    try { rec = lerXml(await f.text()); } catch {}
+    if (!rec || !rec.d) { r.ignorados.push(f.name); continue; }
+    const { c, ...resto } = rec;
+    resto.i = Date.now();                       // quando foi lida (serve para não ressuscitar notas apagadas depois)
+    const chave = c || `${rec.t}-${rec.n}-${norm(rec.e)}`;
+    if (vistos.has(chave)) { r.jaTinha++; continue; }
+    vistos.add(chave);
+    if (flat.xml[chave]) r.jaTinha++; else r[rec.t]++;
+    (lotes['xml-' + rec.d] = lotes['xml-' + rec.d] || {})[encKey(chave)] = resto;
+  }
+  for (const [id, obj] of Object.entries(lotes)) kvSetMany(id, obj);
+  await gravarXmlAgora();                          // só diz "lido" depois de guardar neste computador
+  return r;
+}
+
+// Junta o que foi arrastado: arquivos soltos e pastas (com subpastas). Precisa ser chamada dentro do evento de soltar.
+function coletarArquivos(dt) {
+  const diretos = [...(dt.files || [])];
+  const entradas = [...(dt.items || [])].map((i) => (i.webkitGetAsEntry ? i.webkitGetAsEntry() : null)).filter(Boolean);
+  const lerEntrada = (ent) => new Promise((res) => {
+    if (ent.isFile) { ent.file((f) => res([f]), () => res([])); return; }
+    if (!ent.isDirectory) { res([]); return; }
+    const leitor = ent.createReader(), achados = [];
+    const lote = () => leitor.readEntries(async (es) => {
+      if (!es.length) { res((await Promise.all(achados.map(lerEntrada))).flat()); return; }
+      achados.push(...es); lote();
+    }, () => res([]));
+    lote();
+  });
+  if (!entradas.length) return Promise.resolve(diretos);
+  return Promise.all(entradas.map(lerEntrada)).then((l) => { const f = l.flat(); return f.length ? f : diretos; });
+}
+
+// Aviso rápido no canto de baixo da tela (fica acima das janelas abertas). Some sozinho.
+let _avisoTimer = null;
+function avisar(msg, ms = 6000) {
+  const el = $('aviso');
+  el.textContent = msg;
+  try { if (!el.matches(':popover-open')) el.showPopover(); } catch { el.style.display = 'block'; }
+  clearTimeout(_avisoTimer);
+  _avisoTimer = setTimeout(() => { try { el.hidePopover(); } catch { el.style.display = 'none'; } }, ms);
+}
+
+async function processarXml(arquivos) {
+  const alvo = $('xmlResultado'), janela = $('dlgXml').open;
+  const say = (m, ms) => { alvo.textContent = m; if (!janela) avisar(m, ms); };
+  if (!arquivos.length) { say('Nenhum arquivo recebido.'); return; }
+  say('Lendo ' + arquivos.length + ' arquivo(s)…', 60000);
+  const r = await importarXml(arquivos);
+  const partes = [];
+  if (r.nfe) partes.push(r.nfe + ' NF-e nova(s)');
+  if (r.cte) partes.push(r.cte + ' CT-e novo(s)');
+  if (r.jaTinha) partes.push(r.jaTinha + ' já estava(m) lido(s)');
+  let msg = partes.length ? 'Lido: ' + partes.join(', ') + '.' : 'Nada novo foi lido.';
+  if (r.ignorados.length) msg += ' Ignorado(s) por não serem NF-e nem CT-e: ' + r.ignorados.length + ' (' + r.ignorados.slice(0, 3).join(', ') + (r.ignorados.length > 3 ? '…' : '') + ').';
+  say(msg + (r.nfe || r.cte ? ' Veja o peso na Análise (BI).' : ''), 8000);
+  renderXml();
+  render();                                   // o peso aparece ao lado do motorista na tabela
+  if ($('dlgBI').open) renderBI();
+}
+
+// Totais e conferências, a partir de tudo que foi lido. "mes" (AAAA-MM) limita pelo mês de emissão; '' = tudo.
+// Nome curto do produto: "SOJA EM GRAOS A GRANEL" -> "Soja", "FARELO DE SOJA HI PRO" -> "Farelo". O que não for conhecido fica com as 2 primeiras palavras.
+const PRODUTOS = [['farelo', 'Farelo'], ['glicerin', 'Glicerina'], ['casca', 'Casca de soja'], ['oleo', 'Óleo'], ['soja', 'Soja'], ['milho', 'Milho'], ['trigo', 'Trigo'], ['sorgo', 'Sorgo'], ['arroz', 'Arroz'], ['feijao', 'Feijão'], ['acucar', 'Açúcar'], ['fertiliz', 'Fertilizante'], ['ureia', 'Ureia'], ['calcario', 'Calcário']];
+function produtoNome(txt) {
+  const n = norm(txt || '');
+  if (!n) return '';
+  const achou = PRODUTOS.find(([k]) => n.split(/[^a-z0-9]+/).some((p) => p.startsWith(k)));
+  return achou ? achou[1] : titleName(String(txt).trim().split(/\s+/).slice(0, 2).join(' '));
+}
+// Nome único da empresa: "ARMAZENS RIO CLARO SERVICOS E ARMAZENAMENTO S/A" (nota) e "Armazéns Rio Claro" (tabela) viram o nome da tabela.
+// Vale quando o nome da tabela, compacto (sem espaços, acentos e pontuação), está dentro do nome da nota.
+function canonEmpresaFn() {
+  const tabela = new Map();                       // nome compacto -> nome como está na tabela (o mais usado)
+  const cont = new Map();
+  state.items.forEach((x) => { const k = compacto(x.empresa); if (k.length >= 5) { cont.set(x.empresa, (cont.get(x.empresa) || 0) + 1); if (!tabela.has(k)) tabela.set(k, x.empresa); } });
+  const lista = [...tabela.entries()].sort((a, b) => b[0].length - a[0].length);
+  const cache = new Map();
+  return (nome) => {
+    if (!nome) return nome;
+    if (cache.has(nome)) return cache.get(nome);
+    const k = compacto(nome);
+    let r = nome;
+    if (k.length >= 5) {
+      const achou = lista.filter(([t]) => k.includes(t));
+      if (achou.length) r = achou.sort((a, b) => (cont.get(b[1]) || 0) - (cont.get(a[1]) || 0))[0][1];
+    }
+    cache.set(nome, r);
+    return r;
+  };
+}
+function xmlResumo(mes) {
+  // "dc" = dia da carga: o dia da linha da tabela quando a nota está ligada a um motorista; senão, a data da nota.
+  // "emp" = empresa: a da tabela quando ligada; senão, o emitente da nota (com o nome da tabela, se for a mesma empresa).
+  const lig = pesosPorLinha(), canon = canonEmpresaFn();
+  const todos = Object.entries(flat.xml).map(([c, r]) => {
+    const linha = r.t === 'nfe' ? lig.notaLinha.get(c) : null;
+    const pro = r.t === 'nfe' ? (produtoNome(r.pr) || (linha && produtoNome(linha.produto)) || 'Sem produto') : '';
+    return { ...r, c, pro, dc: linha ? linha.date : r.d, emp: r.t === 'nfe' ? canon(linha ? linha.empresa : (r.e || '(sem empresa)')) : '', e: r.t === 'nfe' ? canon(r.e) : r.e, r: r.t === 'cte' ? canon(r.r) : r.r };
+  });
+  // Nota sem produto herda o produto principal da própria empresa (o mais pesado nas outras notas; senão, o mais usado na tabela).
+  // Assim as barras por produto fecham com o total da empresa.
+  const maisUsado = (m) => [...m.entries()].sort((a, b) => b[1] - a[1])[0];
+  const porEmpNota = new Map(), porEmpTab = new Map();
+  const soma2 = (mapa, emp, pro, v) => { const m = mapa.get(emp) || mapa.set(emp, new Map()).get(emp); m.set(pro, (m.get(pro) || 0) + v); };
+  todos.forEach((r) => { if (r.t === 'nfe' && r.pro !== 'Sem produto') soma2(porEmpNota, norm(r.emp), r.pro, r.kg || 1); });
+  state.items.forEach((x) => { const p = produtoNome(x.produto); if (p) soma2(porEmpTab, norm(canon(x.empresa)), p, 1); });
+  const produtoDaEmpresa = (emp) => { const k = norm(emp), a = porEmpNota.get(k) || porEmpTab.get(k); return a ? maisUsado(a)[0] : ''; };
+  todos.forEach((r) => { if (r.t === 'nfe' && r.pro === 'Sem produto') r.pro = produtoDaEmpresa(r.emp) || 'Sem produto'; });
+  const nfPorChave = {}, citadas = new Set();
+  todos.forEach((r) => { if (r.t === 'nfe') nfPorChave[r.c] = r; else (r.nfs || []).forEach((k) => citadas.add(k)); });
+  const doPeriodo = todos.filter((r) => !mes || (r.dc || r.d || '').startsWith(mes));
+  const nfs = doPeriodo.filter((r) => r.t === 'nfe'), ctes = doPeriodo.filter((r) => r.t === 'cte');
+  const soma = (l) => l.reduce((s, r) => s + (r.kg || 0), 0);
+  // CT-e cujas notas já foram todas lidas e a soma do peso delas difere do peso do CT-e (tolerância de 0,5%)
+  const divergentes = ctes.filter((c) => {
+    const l = c.nfs || [];
+    if (!l.length || !l.every((k) => nfPorChave[k])) return false;
+    return Math.abs(l.reduce((s, k) => s + (nfPorChave[k].kg || 0), 0) - (c.kg || 0)) > Math.max(1, (c.kg || 0) * 0.005);
+  });
+  const grupos = new Map();
+  const grupo = (nome) => {
+    const k = norm(nome) || '(sem nome)';
+    if (!grupos.has(k)) grupos.set(k, { nome: nome || '(sem nome)', nf: 0, kgNf: 0, cte: 0, kgCte: 0 });
+    return grupos.get(k);
+  };
+  nfs.forEach((r) => { const g = grupo(r.e); g.nf++; g.kgNf += r.kg || 0; });
+  ctes.forEach((r) => { const g = grupo(r.r); g.cte++; g.kgCte += r.kg || 0; });
+
+  // Peso carregado (pelas NF-e) por dia, empresa e motorista. Quando a nota já está ligada a uma linha da tabela,
+  // usa o nome da empresa e do motorista da tabela; senão, os da própria nota.
+  const soma1 = (mapa, chave, nome, kg) => {
+    const g = mapa.get(chave) || mapa.set(chave, { nome, kg: 0, nf: 0 }).get(chave);
+    g.kg += kg; g.nf++;
+    if (nome.length > g.nome.length && !chave.startsWith('#')) g.nome = nome;
+  };
+  // Pesos digitados à mão na tabela entram nos totais e, para aquela linha, valem no lugar das notas ligadas a ela.
+  const porChave = new Map(state.items.map((x) => [noteKey(x), x]));
+  const manuais = [];
+  Object.entries(flat.peso).forEach(([k, kg]) => {
+    const x = porChave.get(k);
+    if (x && kg > 0) manuais.push({ t: 'manual', c: 'm|' + k, kg, dc: x.date, emp: canon(x.empresa), pro: produtoNome(x.produto) || produtoDaEmpresa(canon(x.empresa)) || 'Sem produto', mot: x.motorista, linha: x });
+  });
+  const trocadas = new Set(), linhasManuais = new Map(manuais.map((m) => [m.linha, m]));
+  todos.forEach((r) => {
+    const m = r.t === 'nfe' && linhasManuais.get(lig.notaLinha.get(r.c));
+    if (m) { trocadas.add(r.c); if (r.pro !== 'Sem produto') m.pro = r.pro; }
+  });
+  const carregadoRecs = nfs.filter((r) => !trocadas.has(r.c)).concat(manuais.filter((m) => !mes || m.dc.startsWith(mes)));
+  const dias = new Map(), empCarregado = new Map(), motCarregado = new Map();
+  carregadoRecs.forEach((r) => {
+    const kg = r.kg || 0, linha = r.t === 'manual' ? r.linha : lig.notaLinha.get(r.c);
+    soma1(dias, r.dc, r.dc, kg);
+    const dp = dias.get(r.dc).prod || (dias.get(r.dc).prod = new Map());
+    dp.set(r.pro, (dp.get(r.pro) || 0) + kg);
+    soma1(empCarregado, norm(r.emp) || '#sem', r.emp, kg);
+    const mot = linha ? linha.motorista : (r.m ? titleName(r.m) : '');
+    soma1(motCarregado, mot ? chaveNome(mot) || norm(mot) : '#sem', mot || '(motorista não informado na nota)', kg);
+  });
+  const porPeso = (m) => [...m.values()].sort((a, b) => b.kg - a.kg);
+  return {
+    total: todos.length, nManuais: manuais.length, carregadoRecs, nfs, ctes, kgNf: soma(nfs), kgCte: soma(ctes), divergentes,
+    semCte: nfs.filter((r) => !citadas.has(r.c)), temCteLido: todos.some((r) => r.t === 'cte'),
+    empresas: [...grupos.values()].sort((a, b) => (b.kgNf + b.kgCte) - (a.kgNf + a.kgCte)),
+    carregado: { porDia: [...dias.entries()].sort((a, b) => a[0].localeCompare(b[0])).map(([iso, g]) => ({ iso, kg: g.kg, nf: g.nf, prod: g.prod })), porEmpresa: porPeso(empCarregado), porMotorista: porPeso(motCarregado) },
+  };
+}
+
+// Peso carregado num dia, por empresa (pelas NF-e). Empresa da tabela quando a nota está ligada a um motorista.
+const tonCurto = (kg) => kg >= 1000 ? (kg / 1000).toLocaleString('pt-BR', { maximumFractionDigits: 2 }) + ' t' : Math.round(kg).toLocaleString('pt-BR') + ' kg';
+function pesoDoDia(iso) {
+  const x = xmlResumo('');
+  const doDia = x.carregadoRecs.filter((r) => r.dc === iso);
+  const g = new Map();
+  doDia.forEach((r) => { const k = norm(r.emp) || '#sem'; const e = g.get(k) || g.set(k, { nome: r.emp, kg: 0, nf: 0 }).get(k); e.kg += r.kg || 0; e.nf++; });
+  const lista = [...g.values()].sort((a, b) => b.kg - a.kg);
+  const [y, m, d] = iso.split('-').map(Number);
+  return { temXml: x.total > 0 || x.nManuais > 0, lista, notas: doDia.length, total: lista.reduce((s, e) => s + e.kg, 0), dia: DIAS_SEMANA[new Date(y, m - 1, d).getDay()] };
+}
+function renderBiDia() {
+  const iso = state.biDia, card = $('biDiaCard');
+  const p = iso ? pesoDoDia(iso) : null;
+  if (!p || !p.temXml) { card.hidden = true; return; }              // sem dia escolhido ou sem nenhum XML lido: o quadro some
+  card.hidden = false;
+  $('biDia').value = iso;
+  $('biDiaTitulo').textContent = `${p.dia} · ${fmtDate(iso)}` + (p.lista.length ? ` — total ${tonCurto(p.total)} em ${p.notas} nota(s)` : '');
+  $('biDiaTiles').innerHTML = p.lista.length
+    ? p.lista.map((e) => `<div class="tile"><div class="emp">${esc(e.nome)}</div><div class="kg">${tonCurto(e.kg)}</div><div class="nf">${e.nf} nota(s)</div></div>`).join('')
+      + (p.lista.length > 1 ? `<div class="tile total"><div class="emp">Total</div><div class="kg">${tonCurto(p.total)}</div><div class="nf">${p.notas} nota(s)</div></div>` : '')
+    : '<p class="empty">Nenhuma nota lida para este dia.</p>';
+}
+
+// Barras do peso carregado por dia (toneladas). Mesmo desenho do gráfico principal, sem clique.
+function pesoDiaHtml(porDia) {
+  if (!porDia.length) return '<p class="empty">Sem notas neste período.</p>';
+  const lista = [], mapa = new Map(porDia.map((d) => [d.iso, d]));
+  for (let iso = porDia[0].iso; iso <= porDia[porDia.length - 1].iso; iso = addDays(iso, 1)) lista.push(mapa.get(iso) || { iso, kg: 0, nf: 0, prod: new Map() });
+  // Uma barra por produto em cada dia; a cor de cada produto é sempre a mesma (ordem alfabética).
+  const produtos = [...new Set(porDia.flatMap((d) => [...d.prod.keys()]))].sort((a, b) => a.localeCompare(b, 'pt-BR'));
+  const cor = (p) => CORES_PRODUTO[produtos.indexOf(p) % CORES_PRODUTO.length];
+  const max = Math.max(1, ...lista.flatMap((d) => [...d.prod.values()]));
+  const t1 = (kg) => (kg / 1000).toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+  const legenda = '<div class="legend">' + produtos.map((p) => `<span><i style="background:${cor(p)}"></i>${esc(p)}</span>`).join('') + '</div>';
+  return legenda + '<div class="days estatico">' + lista.map((d) => {
+    const barras = [...d.prod.entries()].sort((a, b) => a[0].localeCompare(b[0], 'pt-BR')).map(([p, kg]) =>
+      `<div class="pbar" title="${esc(p)}: ${kgTxt(kg)}"><div class="n">${t1(kg)}</div><div class="bar" style="height:${Math.max(2, (kg / max) * 100)}px;background:${cor(p)}"></div></div>`).join('');
+    return `<div class="day dia-prod" title="${fmtDate(d.iso)}: ${kgTxt(d.kg)} em ${d.nf} nota(s)"><div class="pbars">${barras}</div><div class="d">${d.iso.slice(8)}/${d.iso.slice(5, 7)}</div></div>`;
+  }).join('') + '</div><p class="sub">Toneladas por dia e por produto, pelas NF-e (dia da carga na tabela; sem ligação, a data da nota). Produto lido da nota; nota sem produto usa o produto principal da empresa dela.</p>';
+}
+const CORES_PRODUTO = ['#2456d6', '#e08a00', '#16803c', '#8e44ad', '#c0392b', '#00838f', '#7f8c00', '#d6336c'];
+// Ranking com barras: nome, peso e quantidade de notas.
+// Mostra todos (a caixa rola); o ranking vem do maior para o menor peso.
+function rankPesoHtml(lista) {
+  if (!lista.length) return '<div class="empty">Sem notas neste período</div>';
+  const topo = lista[0].kg || 1;
+  return lista.map((g) => `<div class="row"><span>${esc(g.nome)}</span><b>${kgTxt(g.kg)} <small>· ${g.nf} nota(s)</small></b><div class="track"><div class="fill" style="width:${(g.kg / topo) * 100}%"></div></div></div>`).join('');
+}
+// ---- ligar cada nota (NF-e) à linha do motorista na tabela ----
+// A nota traz o nome do motorista, a empresa de origem (emitente) e a data. A linha é a do mesmo motorista, da mesma empresa,
+// no dia mais próximo da nota (até 3 dias de diferença). O nome é comparado pelo primeiro e último nome ("Carlos Menezes" = "Carlos Eduardo Menezes").
+const chaveNome = (n) => { const t = nameKey(cleanName(n)).split(' ').filter(Boolean); return t.length > 1 ? t[0] + ' ' + t[t.length - 1] : (t[0] || ''); };
+const compacto = (s) => norm(s).replace(/[^a-z0-9]/g, '');
+// A empresa da planilha costuma ser um apelido ("Agrícola Horizonte"); a nota traz o nome legal. Basta uma palavra (4+ letras) estar nele.
+function mesmaEmpresa(planilha, emitente) {
+  const alvo = compacto(emitente);
+  if (!alvo) return false;
+  return norm(planilha).split(/[^a-z0-9]+/).filter((p) => p.length >= 4).some((p) => alvo.includes(p));
+}
+const _ligacao = { v: '', mapa: new Map(), notaLinha: new Map(), ligadas: 0, total: 0, soltas: [] };
+function pesosPorLinha() {
+  const v = rebuildCount + '|' + buildCount;
+  if (_ligacao.v === v) return _ligacao;
+  const porNome = new Map();
+  state.items.forEach((x) => { const k = chaveNome(x.nome); if (k) (porNome.get(k) || porNome.set(k, []).get(k)).push(x); });
+  const mapa = new Map(), notaLinha = new Map(), soltas = [];
+  let total = 0, ligadas = 0;
+  Object.entries(flat.xml).forEach(([c, r]) => {
+    if (r.t !== 'nfe') return;
+    total++;
+    const k = chaveNome(r.m || '');
+    let melhor = null, dm = Infinity;
+    (k ? porNome.get(k) || [] : []).filter((x) => mesmaEmpresa(x.empresa, r.e)).forEach((x) => {
+      const d = Math.abs(diffDays(x.date, r.d));
+      if (d < dm || (d === dm && x.date < melhor.date)) { dm = d; melhor = x; }
+    });
+    if (!melhor || dm > 3) { soltas.push(r); return; }
+    ligadas++;
+    notaLinha.set(c, melhor);
+    const e = mapa.get(melhor) || mapa.set(melhor, { kg: 0, notas: [], placa: '' }).get(melhor);
+    e.kg += r.kg || 0; e.notas.push(r.n); if (r.pl) e.placa = r.pl;
+  });
+  Object.assign(_ligacao, { v, mapa, notaLinha, ligadas, total, soltas });
+  return _ligacao;
+}
+
+const kpiBox = (label, value, hint, cls = '') => `<div class="kpi ${cls}" style="cursor:default"><div class="label">${label}</div><div class="value">${value}</div><div class="hint">${hint}</div></div>`;
+const xmlEmpresasHtml = (x, max) => '<table><thead><tr><th>Empresa</th><th>NF-e</th><th>Peso das notas</th><th>CT-e</th><th>Peso dos CT-e</th></tr></thead><tbody>' +
+  x.empresas.slice(0, max).map((g) => `<tr><td>${esc(g.nome)}</td><td class="num">${g.nf}</td><td class="num">${kgTxt(g.kgNf)}</td><td class="num">${g.cte}</td><td class="num">${kgTxt(g.kgCte)}</td></tr>`).join('') + '</tbody></table>';
+
+// Peso carregado mês a mês por uma empresa escolhida (sempre sobre todos os meses lidos, sem o filtro de período).
+function renderBiEmpMes() {
+  const sel = $('biEmpSel'), box = $('biEmpMeses'), todas = xmlResumo('').carregadoRecs;
+  const porEmp = new Map();
+  todas.forEach((r) => { const k = r.emp || '(sem empresa)'; porEmp.set(k, (porEmp.get(k) || 0) + (r.kg || 0)); });
+  const nomes = [...porEmp.keys()].sort((a, b) => a.localeCompare(b, 'pt-BR'));
+  if (!nomes.includes(state.biEmp)) state.biEmp = [...porEmp.entries()].sort((a, b) => b[1] - a[1])[0][0];
+  sel.innerHTML = nomes.map((n) => `<option value="${esc(n)}" ${n === state.biEmp ? 'selected' : ''}>${esc(n)}</option>`).join('');
+  const meses = new Map();
+  todas.filter((r) => (r.emp || '(sem empresa)') === state.biEmp).forEach((r) => {
+    const m = (r.dc || r.d || '').slice(0, 7);
+    const g = meses.get(m) || meses.set(m, { nome: m ? monthLabelFull(m) : '(sem data)', kg: 0, nf: 0 }).get(m);
+    g.kg += r.kg || 0; g.nf++;
+  });
+  const lista = [...meses.entries()].sort((a, b) => a[0].localeCompare(b[0])).map(([, g]) => g);
+  const topo = Math.max(1, ...lista.map((g) => g.kg));
+  const total = lista.reduce((s, g) => s + g.kg, 0), nfTotal = lista.reduce((s, g) => s + g.nf, 0);
+  box.innerHTML = lista.map((g) => `<div class="row"><span>${esc(g.nome)}</span><b>${kgTxt(g.kg)} <small>· ${g.nf} nota(s)</small></b><div class="track"><div class="fill" style="width:${(g.kg / topo) * 100}%"></div></div></div>`).join('')
+    + (lista.length > 1 ? `<div class="row" style="border-top:1px solid var(--line);padding-top:6px"><span><b>Total</b></span><b>${kgTxt(total)} <small>· ${nfTotal} nota(s)</small></b></div>` : '');
+}
+
+function renderBiXml() {
+  const x = xmlResumo(state.biMes);
+  if (!x.total && !x.nManuais) {
+    $('biXmlKpis').innerHTML = '';
+    $('biXmlTab').innerHTML = '<p class="empty">Nenhum XML lido ainda. Use o botão “Notas (XML)” e arraste as notas e os CT-e.</p>';
+    ['biPesoDia', 'biPesoEmpresa', 'biPesoMotorista'].forEach((id) => { $(id).innerHTML = ''; });
+    return;
+  }
+  $('biXmlKpis').innerHTML =
+    kpiBox('Peso das notas (NF-e)', kgTxt(x.kgNf), x.nfs.length + ' nota(s) lida(s)') +
+    kpiBox('Peso dos CT-e', kgTxt(x.kgCte), x.ctes.length + ' CT-e lido(s)') +
+    kpiBox('NF-e sem CT-e', x.temCteLido ? x.semCte.length : '—', x.temCteLido ? 'notas que nenhum CT-e lido cita' : 'leia também os XML dos CT-e', x.semCte.length && x.temCteLido ? 'bad' : '') +
+    kpiBox('CT-e com peso diferente', x.divergentes.length, 'do peso somado das notas dele (±0,5%)', x.divergentes.length ? 'bad' : '');
+  $('biXmlTab').innerHTML = x.empresas.length ? '<h4 style="margin:14px 0 2px">Notas e CT-e por empresa</h4>' + xmlEmpresasHtml(x, 12) : '';
+  $('biPesoDia').innerHTML = pesoDiaHtml(x.carregado.porDia);
+  $('biPesoEmpresa').innerHTML = rankPesoHtml(x.carregado.porEmpresa);
+  renderBiEmpMes();
+  $('biPesoMotorista').innerHTML = rankPesoHtml(x.carregado.porMotorista);
+}
+
+function renderXml() {
+  const x = xmlResumo('');
+  $('xmlLimpar').hidden = !x.total;
+  $('xmlResumo').textContent = x.total
+    ? `Guardados: ${x.nfs.length} NF-e (${kgTxt(x.kgNf)}) e ${x.ctes.length} CT-e (${kgTxt(x.kgCte)}).` + (state.warnXml ? ' ATENÇÃO: não consegui guardar as notas neste navegador; elas só valem até fechar a página (e na nuvem, se estiver conectada).' : ' Guardadas neste computador.')
+    : 'Nenhum XML lido ainda.';
+  const lig = pesosPorLinha();
+  const soltas = lig.soltas.slice().sort((a, b) => b.d.localeCompare(a.d));
+  $('xmlLigacao').innerHTML = lig.total
+    ? `<p class="sub">${lig.ligadas} de ${lig.total} NF-e foram ligadas a um motorista da tabela (o peso aparece ao lado do nome).</p>` +
+      (soltas.length ? `<details><summary class="sub" style="cursor:pointer">${soltas.length} NF-e sem motorista correspondente na tabela</summary><table><thead><tr><th>Data</th><th>Nota</th><th>Emitente</th><th>Motorista na nota</th><th>Peso</th></tr></thead><tbody>` +
+        soltas.slice(0, 30).map((r) => `<tr><td class="num">${fmtDate(r.d)}</td><td class="num">${esc(r.n)}</td><td>${esc(r.e)}</td><td>${esc(r.m || '(não informado)')}</td><td class="num">${kgTxt(r.kg || 0)}</td></tr>`).join('') + '</tbody></table></details>' : '')
+    : '';
+  const pend = x.temCteLido ? x.semCte.slice().sort((a, b) => b.d.localeCompare(a.d) || String(b.n).localeCompare(String(a.n), undefined, { numeric: true })) : [];
+  $('xmlPendentes').innerHTML = pend.length
+    ? `<h4 style="margin:14px 0 4px">NF-e que ainda não aparecem em nenhum CT-e lido (${pend.length})</h4><table><thead><tr><th>Data</th><th>Nota</th><th>Emitente</th><th>Destinatário</th><th>Peso</th></tr></thead><tbody>` +
+      pend.slice(0, 30).map((r) => `<tr><td class="num">${fmtDate(r.d)}</td><td class="num">${esc(r.n)}</td><td>${esc(r.e)}</td><td>${esc(r.p)}</td><td class="num">${kgTxt(r.kg || 0)}</td></tr>`).join('') +
+      '</tbody></table>' + (pend.length > 30 ? `<p class="sub">Mostrando as 30 mais recentes.</p>` : '')
+    : '';
+}
+
+// ---------- análise (BI) ----------
+const MONTH_LABELS = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
+const MONTH_SHORT = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+const monthLabelFull = (key) => { const [y, m] = key.split('-').map(Number); return MONTH_LABELS[m - 1] + ' de ' + y; };
+const monthLabelShort = (key) => { const [y, m] = key.split('-').map(Number); return MONTH_SHORT[m - 1] + '/' + String(y).slice(2); };
+const monthsAvailable = () => [...new Set([...state.items.map((x) => x.date.slice(0, 7)), ...Object.values(flat.xml).map((r) => (r.d || '').slice(0, 7)).filter(Boolean)])].sort();
+const pct = (n, t) => t ? Math.round((n / t) * 100) + '%' : '—';
+
+// Tudo calculado a partir do que já está carregado — nenhum dado sai do computador.
+function biData(mesFiltro) {
+  const hoje = todayIso();
+  const noMes = (d) => !mesFiltro || d.startsWith(mesFiltro);
+  const items = state.items.filter((x) => noMes(x.date));
+  const cotas = state.cols.filter((c) => noMes(c.d)).reduce((s, c) => s + c.c, 0);
+  const feito = items.filter((x) => statusOf(x) === 'feito').length;
+  const atrasados = items.filter(emAlerta).length;                                     // sem CT-e e em alerta (linha vermelha)
+  const falta = items.filter((x) => statusOf(x) !== 'feito' && !emAlerta(x)).length;   // sem CT-e, ainda dentro do prazo
+
+  // Idade média de quem já passou da data e ainda não tem CT-e (não é "tempo até o CT-e":
+  // isso exigiria um histórico de quando cada um ficou pronto, que o painel não guarda).
+  const vencidos = items.filter((x) => statusOf(x) !== 'feito' && x.date <= hoje);
+  const atrasoMedio = vencidos.length ? vencidos.reduce((s, x) => s + diffDays(hoje, x.date), 0) / vencidos.length : null;
+
+  const contarPor = (campo) => {
+    const m = {};
+    items.filter(emAlerta).forEach((x) => { const k = x[campo] || '(sem informação)'; m[k] = (m[k] || 0) + 1; });
+    return Object.entries(m).sort((a, b) => b[1] - a[1]).slice(0, 8);
+  };
+
+  const porProdutoMap = {};
+  items.forEach((x) => {
+    const k = x.produto || '(sem produto)';
+    if (!porProdutoMap[k]) porProdutoMap[k] = { total: 0, feito: 0 };
+    porProdutoMap[k].total++;
+    if (statusOf(x) === 'feito') porProdutoMap[k].feito++;
+  });
+  const porProduto = Object.entries(porProdutoMap).sort((a, b) => b[1].total - a[1].total);
+
+  // O gráfico por mês olha SEMPRE todos os meses carregados, pra dar o contexto, mesmo com um mês escolhido no filtro.
+  const porMesMap = {};
+  state.items.forEach((x) => {
+    const k = x.date.slice(0, 7);
+    if (!porMesMap[k]) porMesMap[k] = { ok: 0, pend: 0, late: 0, total: 0 };
+    const st = statusOf(x);
+    porMesMap[k].total++;
+    if (st === 'feito') porMesMap[k].ok++; else if (emAlerta(x)) porMesMap[k].late++; else porMesMap[k].pend++;
+  });
+  const porMes = Object.entries(porMesMap).sort((a, b) => a[0].localeCompare(b[0])).map(([key, v]) => ({ key, ...v }));
+
+  return { total: items.length, cotas, feito, falta, atrasados, atrasoMedio,
+    empresaTop: contarPor('empresa'), motoristaTop: contarPor('nome'), porProduto, porMes };
+}
+
+function rankHtml(entries) {
+  if (!entries.length) return '<div class="empty">Sem atrasos neste período</div>';
+  const max = entries[0][1];
+  return entries.map(([k, n]) => `<div class="row"><span>${esc(k)}</span><b>${n}</b><div class="track"><div class="fill" style="width:${(n / max) * 100}%"></div></div></div>`).join('');
+}
+function biMonthsHtml(porMes) {
+  if (!porMes.length) return '<div class="empty">Sem dados</div>';
+  const max = Math.max(1, ...porMes.map((p) => p.total));
+  return porMes.map((p) => `<div class="day ${p.key === state.biMes ? 'selected' : ''}" data-key="${p.key}">
+    <div class="n">${p.total}</div>
+    <div class="bar" style="height:${(p.total / max) * 120}px" title="Clique para ver só ${monthLabelFull(p.key)}: ${p.total} (${p.ok} com CT-e, ${p.pend} pendentes, ${p.late} atrasados)">
+      <div class="seg-ok" style="flex:${p.ok}"></div><div class="seg-pend" style="flex:${p.pend}"></div><div class="seg-late" style="flex:${p.late}"></div>
+    </div>
+    <div class="d">${monthLabelShort(p.key)}</div></div>`).join('');
+}
+function produtoTableHtml(porProduto) {
+  if (!porProduto.length) return '<div class="empty">Sem dados neste período</div>';
+  return '<table><thead><tr><th>Produto</th><th>Total</th><th>CT-e feito</th></tr></thead><tbody>' +
+    porProduto.map(([k, v]) => `<tr><td>${esc(k)}</td><td class="num">${v.total}</td><td class="num">${v.feito} (${pct(v.feito, v.total)})</td></tr>`).join('') +
+    '</tbody></table>';
+}
+
+function renderBI() {
+  const meses = monthsAvailable();
+  $('biMes').innerHTML = '<option value="">Todos os meses carregados</option>' +
+    meses.map((m) => `<option value="${m}" ${m === state.biMes ? 'selected' : ''}>${monthLabelFull(m)}</option>`).join('');
+  const d = biData(state.biMes);
+  const kpi = (label, value, hint, cls = '') => `<div class="kpi ${cls}" style="cursor:default"><div class="label">${label}</div><div class="value">${value}</div><div class="hint">${hint}</div></div>`;
+  $('biKpis').innerHTML =
+    kpi('Cargas no período', d.total, d.cotas ? d.cotas + ' cotas planejadas' : 'sem cotas planejadas nesta seleção') +
+    kpi('CT-e feito', pct(d.feito, d.total), d.feito + ' de ' + d.total, 'ok') +
+    kpi('Atrasados (sem CT-e)', pct(d.atrasados, d.total), d.atrasados + ' caso(s)', d.atrasados ? 'bad' : '') +
+    kpi('Atraso médio dos pendentes', d.atrasoMedio == null ? '—' : d.atrasoMedio.toFixed(1), 'dias, de quem já passou da data e ainda não tem CT-e');
+  $('biMonths').innerHTML = biMonthsHtml(d.porMes);
+  $('biEmpresa').innerHTML = rankHtml(d.empresaTop);
+  $('biMotorista').innerHTML = rankHtml(d.motoristaTop);
+  $('biProduto').innerHTML = produtoTableHtml(d.porProduto);
+  renderBiXml();
+  renderBiDia();
+}
+
+function biPrint() {
+  const d = biData(state.biMes);
+  const periodo = state.biMes ? monthLabelFull(state.biMes) : 'Todos os meses carregados';
+  const tabela = (titulo, linhas, cols) => '<h3>' + esc(titulo) + '</h3>' + (linhas.length
+    ? '<table><thead><tr>' + cols.map((c) => `<th>${c}</th>`).join('') + '</tr></thead><tbody>' + linhas + '</tbody></table>'
+    : '<p>Sem dados.</p>');
+  $('printArea').innerHTML =
+    '<h2>Análise — ' + esc(periodo) + '</h2>' +
+    tabela('Resumo', [
+      ['Cargas no período', d.total], ['Cotas planejadas', d.cotas || '—'],
+      ['CT-e feito', d.feito + ' (' + pct(d.feito, d.total) + ')'],
+      ['Falta CT-e (dentro do prazo)', d.falta + ' (' + pct(d.falta, d.total) + ')'],
+      ['Atrasados (sem CT-e)', d.atrasados + ' (' + pct(d.atrasados, d.total) + ')'],
+      ['Atraso médio dos pendentes', d.atrasoMedio == null ? '—' : d.atrasoMedio.toFixed(1) + ' dias'],
+    ].map(([k, v]) => `<tr><td>${k}</td><td>${v}</td></tr>`).join(''), ['Indicador', 'Valor']) +
+    tabela('Mais atrasos por empresa', d.empresaTop.map(([k, n]) => `<tr><td>${esc(k)}</td><td>${n}</td></tr>`).join(''), ['Empresa', 'Ocorrências']) +
+    tabela('Mais atrasos por motorista', d.motoristaTop.map(([k, n]) => `<tr><td>${esc(k)}</td><td>${n}</td></tr>`).join(''), ['Motorista', 'Ocorrências']) +
+    tabela('Por produto', d.porProduto.map(([k, v]) => `<tr><td>${esc(k)}</td><td>${v.total}</td><td>${v.feito} (${pct(v.feito, v.total)})</td></tr>`).join(''), ['Produto', 'Total', 'CT-e feito']);
+  const x = xmlResumo(state.biMes);
+  const pd = state.biDia ? pesoDoDia(state.biDia) : null;
+  if (pd && pd.temXml) {
+    $('printArea').innerHTML += tabela('Peso carregado em ' + pd.dia + ', ' + fmtDate(state.biDia) + ' (NF-e)',
+      pd.lista.map((e) => `<tr><td>${esc(e.nome)}</td><td>${e.nf}</td><td>${tonCurto(e.kg)}</td></tr>`).join('') + (pd.lista.length > 1 ? `<tr><td><b>Total</b></td><td><b>${pd.notas}</b></td><td><b>${tonCurto(pd.total)}</b></td></tr>` : ''), ['Empresa', 'Notas', 'Peso']);
+  }
+  if (x.total) {
+    $('printArea').innerHTML +=
+      tabela('Peso das notas e dos CT-e (XML)', [
+        ['Notas (NF-e)', x.nfs.length + ' · ' + kgTxt(x.kgNf)], ['CT-e', x.ctes.length + ' · ' + kgTxt(x.kgCte)],
+        ['NF-e sem CT-e', x.temCteLido ? x.semCte.length : '—'], ['CT-e com peso diferente da nota', x.divergentes.length],
+      ].map(([k, v]) => `<tr><td>${k}</td><td>${v}</td></tr>`).join(''), ['Indicador', 'Valor']) +
+      tabela('Peso carregado por dia (NF-e)', x.carregado.porDia.map((d) => `<tr><td>${fmtDate(d.iso)}</td><td>${d.nf}</td><td>${kgTxt(d.kg)}</td></tr>`).join(''), ['Dia', 'Notas', 'Peso']) +
+      tabela('Peso carregado por empresa (NF-e)', x.carregado.porEmpresa.slice(0, 20).map((g) => `<tr><td>${esc(g.nome)}</td><td>${g.nf}</td><td>${kgTxt(g.kg)}</td></tr>`).join(''), ['Empresa', 'Notas', 'Peso']) +
+      tabela('Peso carregado por motorista (NF-e)', x.carregado.porMotorista.slice(0, 30).map((g) => `<tr><td>${esc(g.nome)}</td><td>${g.nf}</td><td>${kgTxt(g.kg)}</td></tr>`).join(''), ['Motorista', 'Notas', 'Peso']) +
+      tabela('Notas e CT-e por empresa', x.empresas.slice(0, 15).map((g) => `<tr><td>${esc(g.nome)}</td><td>${g.nf}</td><td>${kgTxt(g.kgNf)}</td><td>${g.cte}</td><td>${kgTxt(g.kgCte)}</td></tr>`).join(''), ['Empresa', 'NF-e', 'Peso das notas', 'CT-e', 'Peso dos CT-e']);
+  }
+  window.print();
+}
+
+// ---------- eventos: notas e CT-e (XML) ----------
+$('btnXml').onclick = () => { renderXml(); $('xmlResultado').textContent = ''; $('dlgXml').showModal(); };
+$('xmlFechar').onclick = () => $('dlgXml').close();
+$('xmlDrop').onclick = () => $('xmlFile').click();
+$('xmlDrop').onkeydown = (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); $('xmlFile').click(); } };
+$('xmlFile').onchange = async (e) => { const arq = [...e.target.files]; e.target.value = ''; await processarXml(arq); };
+$('xmlLimpar').onclick = () => {
+  if (!confirm('Apagar todas as notas e CT-e lidos dos XML? Isso vale para os três computadores. Você pode ler os arquivos de novo depois.')) return;
+  kvSet('config', 'xmlApagadoEm', Date.now());
+  for (const id of Object.keys(kv)) if (id.startsWith('xml-')) kvReplace(id, {});
+  $('xmlResultado').textContent = 'XML lidos apagados.';
+  renderXml();
+  render();
+  if ($('dlgBI').open) renderBI();
+};
+// Soltar arquivos em qualquer parte da página: o navegador abriria o arquivo e a tela se perderia, então tratamos aqui.
+const temArquivos = (e) => !!e.dataTransfer && [...(e.dataTransfer.types || [])].includes('Files');
+window.addEventListener('dragover', (e) => {
+  if (!temArquivos(e)) return;
+  e.preventDefault();
+  $('xmlDrop').classList.toggle('sobre', !!(e.target.closest && e.target.closest('#xmlDrop')));
+});
+window.addEventListener('dragleave', (e) => { if (!e.relatedTarget) $('xmlDrop').classList.remove('sobre'); });
+window.addEventListener('drop', (e) => {
+  if (!temArquivos(e)) return;
+  e.preventDefault();
+  $('xmlDrop').classList.remove('sobre');
+  const coleta = coletarArquivos(e.dataTransfer);           // precisa começar já, dentro do evento
+  coleta.then(processarXml);                                // sem abrir a janela: o resultado sai num aviso rápido
+});
+
+// ---------- eventos ----------
+// Trocar de aba não mexe na busca: as duas somam (ver filtered()). Se não achar nada, o aviso da lista vazia explica.
+function setView(v) { state.view = v; if (v !== 'data') state.dataFiltro = ''; render(); }
+$('fData').onchange = (e) => { if (e.target.value) { state.view = 'data'; state.dataFiltro = e.target.value; render(); } else setView('hoje'); };
+// Centraliza a barra de hoje (ou a selecionada) dentro da faixa com rolagem.
+function scrollParaHoje(suave = true) {
+  const diasEl = $('days');
+  const alvo = diasEl.querySelector('.day.today') || diasEl.querySelector('.day.selected');
+  // Sem "hoje" nem seleção no intervalo carregado (planilha ainda não chegou até hoje): mostra o fim mais recente.
+  const destino = alvo ? alvo.offsetLeft - diasEl.clientWidth / 2 + alvo.offsetWidth / 2 : diasEl.scrollWidth;
+  if (suave) { diasEl.scrollLeft = destino; return; }               // scroll-behavior:smooth no CSS anima
+  const prev = diasEl.style.scrollBehavior; diasEl.style.scrollBehavior = 'auto';
+  diasEl.scrollLeft = destino; diasEl.style.scrollBehavior = prev;  // no carregamento da página, sem animação
+}
+$('btnHoje').onclick = () => scrollParaHoje();
+
+// Clicar numa barra do gráfico mostra a lista daquele dia embaixo.
+$('days').addEventListener('click', (e) => {
+  const day = e.target.closest('.day');
+  if (!day) return;
+  state.view = 'data'; state.dataFiltro = day.dataset.iso;   // uma busca ativa continua valendo, agora só para esse dia
+  render();
+  document.querySelector('.tablewrap')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+});
+$('btnResumo').onclick = () => { $('resumoData').value = diaDoResumo(); renderResumo(); $('dlgResumo').showModal(); };
+$('resumoData').onchange = renderResumo;
+$('resumoClose').onclick = () => $('dlgResumo').close();
+$('resumoCopy').onclick = () => copiarResumo($('resumoData').value || diaDoResumo(), $('resumoCopy'));
+$('btnCopy').onclick = () => copiarResumo(diaDoResumo(), $('btnCopy'));
+$('btnList').onclick = () => { $('listText').value = listText($('listOnlyPend').checked); $('dlgList').showModal(); };
+$('listOnlyPend').onchange = () => { $('listText').value = listText($('listOnlyPend').checked); };
+$('listCopy').onclick = () => copyText($('listText').value, $('listCopy'));
+$('listPrint').onclick = printList;
+$('listClose').onclick = () => $('dlgList').close();
+$('btnUpload').onclick = () => $('file').click();
+$('file').onchange = (e) => { if (e.target.files[0]) openFile(e.target.files[0]); e.target.value = ''; };
+$('fEmpresa').onchange = (e) => { state.empresa = e.target.value; render(); };
+$('fBusca').oninput = (e) => { state.busca = e.target.value; render(); };
+$('fSoAvisar').onchange = (e) => { state.soAvisar = e.target.checked; render(); };
+
+$('btnWa').onclick = () => {
+  $('waMsg').value = cfgGet('waMsg', DEFAULT_MSG);
+  $('waMode').value = store.get('waMode', 'web');
+  $('waPhones').value = '';
+  waRefreshDialog();
+  $('dlgWa').showModal();
+};
+$('waMsg').oninput = waRefreshDialog;
+$('waClose').onclick = () => $('dlgWa').close();
+$('waExport').onclick = () => {
+  const t = phonesText();
+  if (!t) { alert('Ainda não há telefones guardados neste computador.'); return; }
+  copyText(t, $('waExport'));
+};
+$('waClear').onclick = () => { if (confirm(cloud ? 'Apagar TODOS os telefones guardados? Isso vale para os três computadores.' : 'Apagar todos os telefones guardados neste computador?')) { kvReplace('phones', {}); waRefreshDialog(); render(); } };
+$('waSave').onclick = () => {
+  kvSet('config', 'waMsg', $('waMsg').value.trim() || DEFAULT_MSG);
+  store.set('waMode', $('waMode').value);
+  if ($('waPhones').value.trim()) {
+    const r = importPhones($('waPhones').value);
+    if (r.bad) alert(r.ok + ' telefone(s) adicionado(s). ' + r.bad + ' linha(s) não reconhecida(s): cada linha precisa de nome e telefone com DDD.');
+  }
+  $('dlgWa').close();
+  render();
+};
+
+// Ao abrir a Análise, o quadro "Peso carregado no dia" mostra o dia selecionado na tela principal (barra ou calendário; na aba Hoje, hoje).
+$('btnBI').onclick = () => {
+  state.biDia = state.view === 'data' && state.dataFiltro ? state.dataFiltro : state.view === 'hoje' ? todayIso() : '';
+  renderBI(); $('dlgBI').showModal();
+};
+$('biDia').onchange = (e) => { state.biDia = e.target.value; renderBiDia(); };
+$('biClose').onclick = () => $('dlgBI').close();
+$('biMes').onchange = (e) => { state.biMes = e.target.value; renderBI(); };
+$('biEmpSel').onchange = (e) => { state.biEmp = e.target.value; renderBiEmpMes(); };
+$('biExport').onclick = biPrint;
+$('biMonths').addEventListener('click', (e) => {
+  const el = e.target.closest('.day');
+  if (!el) return;
+  state.biMes = el.dataset.key;
+  renderBI();
+});
+
+// ---------- motoristas escritos à mão ----------
+function abrirAdicionar() {
+  $('addData').value = state.view === 'data' && state.dataFiltro ? state.dataFiltro : todayIso();
+  $('addEmpresa').value = ''; $('addLote').value = ''; $('addProduto').value = ''; $('addNomes').value = ''; $('addErr').textContent = '';
+  const empresas = [...new Set(state.items.map((x) => x.empresa).filter(Boolean))].sort((a, b) => a.localeCompare(b));
+  $('dlEmpresas').innerHTML = empresas.map((e) => `<option value="${esc(e)}">`).join('');
+  $('dlgAdd').showModal();
+  $('addEmpresa').focus();
+}
+// Ao escolher uma empresa conhecida, sugere o lote e o produto mais recentes dela.
+function sugerirLote() {
+  const alvo = norm($('addEmpresa').value);
+  if (!alvo) return;
+  const ult = state.items.filter((x) => norm(x.empresa) === alvo && x.lote).sort((a, b) => b.date.localeCompare(a.date))[0];
+  if (!ult) return;
+  if (!$('addLote').value) $('addLote').value = ult.lote;
+  if (!$('addProduto').value && ult.produto) $('addProduto').value = ult.produto;
+}
+$('btnAdd').onclick = abrirAdicionar;
+$('addEmpresa').onchange = sugerirLote;
+$('addCancel').onclick = () => $('dlgAdd').close();
+$('addOk').onclick = () => {
+  const date = $('addData').value;
+  const empresa = $('addEmpresa').value.trim();
+  const lote = $('addLote').value.trim();
+  const produto = $('addProduto').value.trim().toUpperCase();
+  const nomes = $('addNomes').value.split(/\r?\n/).map((s) => s.trim()).filter(Boolean);
+  if (!date) { $('addErr').textContent = 'Escolha a data.'; return; }
+  if (!empresa) { $('addErr').textContent = 'Escreva a empresa.'; return; }
+  if (!nomes.length) { $('addErr').textContent = 'Escreva pelo menos um nome de motorista.'; return; }
+  // não adiciona quem já está na lista desse dia/empresa (nem o mesmo nome repetido na própria caixa)
+  const jaTem = new Set(state.items.map((x) => `${x.date}|${nameKey(x.nome)}|${norm(x.empresa)}`));
+  const novos = {};
+  const base = Date.now().toString(36);
+  nomes.forEach((m, i) => {
+    const nome = titleName(m), k = `${date}|${nameKey(cleanName(nome))}|${norm(empresa)}`;
+    if (jaTem.has(k)) return;
+    jaTem.add(k);
+    novos['m' + base + i.toString(36) + Math.random().toString(36).slice(2, 5)] = { d: date, e: empresa, l: lote, p: produto, m: nome };
+  });
+  if (!Object.keys(novos).length) { $('addErr').textContent = 'Esses motoristas já estão na lista de ' + fmtDate(date) + ' para essa empresa.'; return; }
+  kvSetMany('manual-' + date.slice(0, 7), novos);
+  $('dlgAdd').close();
+  state.busca = ''; $('fBusca').value = '';
+  state.view = 'data'; state.dataFiltro = date;
+  refreshFromSaved();
+};
+
+$('cloudStatus').onclick = () => { if (cloudKind === 'signedout' && window.painel.connect) window.painel.connect(); };
+$('cloudSignOut').onclick = async () => { if (cloud) await cloud.signOut(); $('dlgSettings').close(); };
+
+const qtdExcluidas = () => Object.keys(flat.excluido).length;
+function atualizarExcluidas() {
+  const n = qtdExcluidas();
+  $('excluidasInfo').textContent = n ? n + ' linha(s) da planilha excluída(s) com o ✕ estão escondidas.' : '';
+  $('btnRestaurar').hidden = !n;
+}
+$('btnRestaurar').onclick = () => {
+  if (!confirm('Mostrar de novo as ' + qtdExcluidas() + ' linhas excluídas?')) return;
+  for (const id of Object.keys(kv)) if (id.startsWith('excluido-')) kvReplace(id, {});
+  atualizarExcluidas();
+  refreshFromSaved();
+};
+$('btnSettings').onclick = () => { $('cfgLookback').value = lookbackDays(); atualizarExcluidas(); $('dlgSettings').showModal(); };
+
+// Clicar fora de uma janela (no fundo escurecido) fecha. Só conta se o clique começou e terminou fora,
+// para não fechar ao arrastar um texto selecionado para fora. A janela da senha fica de fora de propósito.
+document.querySelectorAll('dialog').forEach((d) => {
+  if (d.id === 'dlgPass') return;
+  const fora = (e) => { const r = d.getBoundingClientRect(); return e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom; };
+  let comecouFora = false;
+  d.addEventListener('mousedown', (e) => { comecouFora = e.target === d && fora(e); });
+  d.addEventListener('click', (e) => { if (comecouFora && e.target === d && fora(e)) d.close(); comecouFora = false; });
+});
+$('cfgCancel').onclick = () => $('dlgSettings').close();
+$('cfgSave').onclick = () => {
+  store.set('lookback', String(Math.max(1, Math.min(365, Number($('cfgLookback').value) || 30))));
+  $('dlgSettings').close();
+  refreshFromSaved();
+};
+
+setCloudStatus('local');
+refreshFromSaved();
+setInterval(refreshFromSaved, 5 * 60000);   // vira o dia sozinho
+</script>
+<script type="module">
+// Conexão com o Firebase (opcional). Sem configuração, o painel funciona só com os dados deste computador.
+const CFG = window.PAINEL_FIREBASE;
+const P = window.painel;
+if (CFG) {
+  const base = 'https://www.gstatic.com/firebasejs/10.12.2/';
+  let ctx = null;
+  const load = async () => {
+    if (ctx) return ctx;
+    const [appM, authM, fsM] = await Promise.all([import(base + 'firebase-app.js'), import(base + 'firebase-auth.js'), import(base + 'firebase-firestore.js')]);
+    const app = appM.initializeApp(CFG.firebase);
+    const auth = authM.getAuth(app);
+    let db;
+    // experimentalAutoDetectLongPolling: em redes de empresa que bloqueiam a conexão contínua, usa outro jeito de falar com a nuvem
+    try { db = fsM.initializeFirestore(app, { localCache: fsM.persistentLocalCache({ tabManager: fsM.persistentMultipleTabManager() }), experimentalAutoDetectLongPolling: true }); }
+    catch { db = fsM.getFirestore(app); }
+    return (ctx = { authM, fsM, auth, db });
+  };
+  const connect = async () => {
+    P.setCloudStatus('connecting');
+    let c;
+    try { c = await load(); } catch (e) { P.setCloudStatus('error', 'sem acesso ao Firebase'); return; }
+    const { authM, fsM, auth, db } = c;
+    let user = await new Promise((res) => { const un = authM.onAuthStateChanged(auth, (u) => { un(); res(u); }); });
+    let err = '';
+    while (!user) {
+      const pw = await P.askPassword(err);
+      if (pw === null) { P.setCloudStatus('signedout'); return; }
+      try { await authM.signInWithEmailAndPassword(auth, CFG.sharedEmail, pw); user = auth.currentUser; }
+      catch (e) {
+        err = ['auth/invalid-credential', 'auth/wrong-password', 'auth/invalid-login-credentials'].includes(e.code) ? 'Senha incorreta.'
+          : e.code === 'auth/too-many-requests' ? 'Muitas tentativas. Espere alguns minutos.' : 'Não deu para entrar (' + (e.code || e.message) + ').';
+      }
+    }
+    const ref = (id) => fsM.doc(db, 'kv', id);
+    const report = (e) => {
+      P.setCloudStatus('error', e.code || e.message);
+      if (window.avisar) window.avisar('A nuvem não aceitou uma gravação (' + (e.code || e.message) + '). O que você fez fica neste computador e será reenviado quando der.', 12000);
+    };
+    P.attachCloud({
+      DEL: fsM.deleteField(),
+      merge: (id, obj) => { try { return fsM.setDoc(ref(id), obj, { merge: true }).catch(report); } catch (e) { report(e); } },
+      replace: (id, obj) => { try { return fsM.setDoc(ref(id), obj).catch(report); } catch (e) { report(e); } },
+      signOut: async () => { await authM.signOut(auth); P.attachCloud(null); P.setCloudStatus('signedout'); },
+    });
+    let first = true;
+    fsM.onSnapshot(fsM.collection(db, 'kv'), { includeMetadataChanges: true }, (snap) => {
+      P.setCloudStatus(snap.metadata.fromCache ? 'offline' : 'ok');
+      if (!first && snap.docChanges().length === 0) return;       // só mudou o estado de sincronização
+      first = false;
+      const docs = {}; snap.forEach((d) => { docs[d.id] = d.data(); });
+      P.onCloudDocs(docs, { fromCache: snap.metadata.fromCache });
+    }, report);
+  };
+  P.connect = connect;
+  connect();
+}
+</script>
+</body>
+</html>
