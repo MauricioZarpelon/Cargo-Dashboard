@@ -11,13 +11,6 @@ O painel lê a planilha, lê os **XML das NF-e e dos CT-e** e transforma tudo em
 
 > ⚠️ **Todos os dados e imagens deste repositório são fictícios** (empresas, motoristas, placas e pesos inventados). Nenhum dado da operação real está no código.
 
-## ▶️ Teste agora (demonstração)
-
-A versão de demonstração roda direto no navegador, com dados fictícios e sem nenhuma configuração. As alterações não são salvas.
-
-- Abra o arquivo [`docs/index.html`](docs/index.html) no navegador, ou
-- [link da demonstração no GitHub Pages — preencher depois de ativar o Pages]
-
 ## 📸 Telas
 
 | Painel do dia | Análise (BI): peso no dia |
